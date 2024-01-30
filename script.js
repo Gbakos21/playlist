@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var beforeButton = document.getElementById("beforeButton");
     var afterButton = document.getElementById("afterButton");
     var muteButton = document.getElementById("muteButton");
-
+    
     beforeButton.addEventListener("click", function () {
         if (currentAudioIndex >= 0 && currentAudioIndex < audioList.length) {
             // Az aktuális audio leállítása
