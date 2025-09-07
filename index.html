@@ -483,8 +483,7 @@
         background: rgba(255, 255, 255, 0.06);
       }
 
-      /* >>> ÚJ: amikor hosszú-nyomással "armatunk", tiltsuk a natív touch scrollt,
-         hogy függőleges mozdulatra is induljon a drag. */
+      /* >>> Hosszú nyomás: amikor "armatunk", tiltsuk a natív touch scrollt */
       body.reorder-armed #sidebarScroll,
       body.reorder-armed .track-item {
         touch-action: none !important;
@@ -1080,7 +1079,7 @@
           STORAGE.ls = true;
         } catch {
           STORAGE.ls = false;
-          msgs.push("LocalStorage nem elérhető (inkognitó/sandbox?).");
+          msgs.push("LocalStorage nem elérhető (inkognító/sandbox?).");
         }
 
         await new Promise((resolve) => {
@@ -1238,6 +1237,7 @@
         return new Blob([u], { type: mime });
       }
 
+      // >>> TAG-Olvasás URL-ről: nem blokkol, és nem szed le teljes mp3-at
       async function readTagsFromUrl(src) {
         if (!window.jsmediatags) return null;
         const read = (input) =>
@@ -1253,14 +1253,19 @@
               resolve(null);
             }
           });
-        let tags = await read(src);
-        if (tags) return tags;
+
+        // 1) közvetlen olvasás URL-ről (a lib próbál részlegeset kérni)
+        const first = await read(src);
+        if (first) return first;
+
+        // 2) fallback: kérjünk CSAK az elejéből, és ha nem 206, akkor nem erőltetjük
         try {
-          const resp = await fetch(src, { mode: "cors", cache: "no-store" });
-          if (!resp.ok) return null;
+          const resp = await fetch(src, {
+            headers: { Range: "bytes=0-65535" },
+          });
+          if (resp.status !== 206) return null; // ha a szerver nem támogatja a Range-et
           const blob = await resp.blob();
-          tags = await read(blob);
-          return tags;
+          return await read(blob);
         } catch {
           return null;
         }
@@ -1375,15 +1380,23 @@
         }
         return changed;
       }
-      async function hydrateAllUrlTracks() {
+
+      // >>> Párhuzamos, de korlátozott háttér-hidratálás (nem blokkol induláskor)
+      async function hydrateAllUrlTracks({ concurrency = 3 } = {}) {
+        const jobs = playlistMeta.tracks
+          .filter((t) => t.srcType === "url" && !t._tagsHydrated)
+          .map((t) => () => hydrateUrlTrack(t, true));
+
         let any = false;
-        for (const t of playlistMeta.tracks) {
-          if (t.srcType === "url" && !t._tagsHydrated) {
-            const changed = await hydrateUrlTrack(t, true);
-            any = any || changed;
-          }
+        for (let i = 0; i < jobs.length; i += concurrency) {
+          const batch = jobs.slice(i, i + concurrency);
+          const res = await Promise.all(batch.map((fn) => fn()));
+          if (res.some(Boolean)) any = true;
         }
-        if (any) saveMeta(playlistMeta);
+        if (any) {
+          saveMeta(playlistMeta);
+          renderTrackList();
+        }
       }
 
       let suppressClickUntil = 0;
@@ -1401,6 +1414,7 @@
           img.alt = "";
           img.src = DEFAULT_COVER;
           img.draggable = false;
+          img.loading = "lazy"; // <<< lazy thumbs
           img.onerror = () => (img.src = DEFAULT_COVER);
           resolveTrackCover(t).then((url) => (img.src = url || DEFAULT_COVER));
 
@@ -1461,7 +1475,14 @@
         saveMeta(playlistMeta);
 
         const tr = playlistMeta.tracks[currentIndex];
-        await hydrateUrlTrack(tr, true);
+        // „lusta” hidratálás: csak az aktuálisat frissítjük biztosan
+        hydrateUrlTrack(tr, true).then((changed) => {
+          if (changed) {
+            saveMeta(playlistMeta);
+            renderTrackList();
+            updateCoverUI(tr);
+          }
+        });
 
         titleEl.textContent = tr.title || "Ismeretlen cím";
         artistEl.textContent = tr.artist || "";
@@ -2257,7 +2278,6 @@
         return arr;
       }
 
-      // Csak a LÁTHATÓ sorokat vesszük (a rejtett húzott elem kimarad)
       function getTrackItems() {
         return Array.from(trackList.querySelectorAll(".track-item")).filter(
           (el) => el.offsetParent !== null && el !== dragState.itemEl
@@ -2276,23 +2296,19 @@
         dragState.itemHeight = rect.height;
         dragState.startLeft = rect.left;
 
-        // PLACEHOLDER az eredeti helyére
         const ph = document.createElement("div");
         ph.className = "track-placeholder";
         ph.style.height = rect.height + "px";
         itemEl.parentElement.insertBefore(ph, itemEl);
         dragState.placeholder = ph;
 
-        // >>> Pointer capture még az elrejtés előtt
         try {
           itemEl.setPointerCapture(pointerId);
         } catch {}
 
-        // Az eredeti elemet kivesszük a layoutból
         itemEl.classList.add("dragging");
         itemEl.style.display = "none";
 
-        // Lebegő ghost (gondoskodjunk róla, hogy ne legyen display:none)
         const ghost = itemEl.cloneNode(true);
         ghost.classList.add("drag-ghost");
         ghost.style.removeProperty("display");
@@ -2304,7 +2320,6 @@
         document.body.appendChild(ghost);
         dragState.ghost = ghost;
 
-        // Hosszú-nyomás "armed" állapot vége; most már tényleg rendezünk
         document.body.classList.remove("reorder-armed");
         sidebarScroll.style.touchAction = "";
         itemEl.style.touchAction = "";
@@ -2357,7 +2372,7 @@
         for (const ch of children) {
           if (ch === dragState.placeholder) break;
           if (ch.classList && ch.classList.contains("track-item")) {
-            if (ch === dragState.itemEl) continue; // húzott elem (display:none) kihagyása
+            if (ch === dragState.itemEl) continue;
             idx++;
           }
         }
@@ -2370,9 +2385,8 @@
 
         const toIdx = placeholderToIndex();
 
-        // Visszaállítás
         itemEl.classList.remove("dragging");
-        itemEl.style.display = ""; // láthatóvá tesszük, de azonnal újrarenderelünk
+        itemEl.style.display = "";
         ghost?.remove();
         placeholder?.remove();
         document.body.classList.remove("reordering");
@@ -2444,8 +2458,6 @@
               try {
                 navigator.vibrate && navigator.vibrate(10);
               } catch {}
-              // >>> Hosszú-nyomás "armed": ideiglenesen tiltsuk a natív scrollt,
-              // hogy függőleges mozdulatra is induljon a drag
               document.body.classList.add("reorder-armed");
               sidebarScroll.style.touchAction = "none";
               pressedEl.style.touchAction = "none";
@@ -2466,7 +2478,6 @@
             if (dx > thresh || dy > thresh) {
               pressCancelled = true;
               clearTimeout(pressTimer);
-              // clean up armed flags if any
               document.body.classList.remove("reorder-armed");
               sidebarScroll.style.touchAction = "";
               if (pressedEl) pressedEl.style.touchAction = "";
@@ -2487,7 +2498,7 @@
             moveGhost(ev.clientY);
             updatePlaceholderPosition(ev.clientY);
             autoScrollIfNeeded(ev.clientY);
-            ev.preventDefault(); // mobil scroll tiltása húzás közben
+            ev.preventDefault();
           }
         };
 
@@ -2497,7 +2508,6 @@
           pressArmed = false;
           pressCancelled = false;
 
-          // >>> touch-action visszaállítás
           document.body.classList.remove("reorder-armed");
           sidebarScroll.style.touchAction = "";
           if (pressedEl) pressedEl.style.touchAction = "";
@@ -2533,23 +2543,27 @@
         playlistMeta = loadMeta() || seedDefaultMeta();
         currentIndex = playlistMeta.currentIndex || 0;
 
+        // Migráció mehet elöl, hogy a következő futások gyorsuljanak
         await migrateStorage(playlistMeta);
-        await hydrateAllUrlTracks();
 
-        playBtn.addEventListener("click", togglePlay);
-        prevBtn.addEventListener("click", prevTrack);
-        nextBtn.addEventListener("click", nextTrack);
-        muteBtn.addEventListener("click", () => toggleMute());
-
-        startBlobWander();
-
+        // UI azonnal
         renderTrackList();
         if (currentIndex < 0 || currentIndex >= playlistMeta.tracks.length)
           currentIndex = 0;
         await loadTrack(currentIndex);
+
+        // Események, effektek
+        playBtn.addEventListener("click", togglePlay);
+        prevBtn.addEventListener("click", prevTrack);
+        nextBtn.addEventListener("click", nextTrack);
+        muteBtn.addEventListener("click", () => toggleMute());
+        startBlobWander();
         setVolumeIcon(false);
         updateProgressUI();
         updateBufferUI();
+
+        // >>> Hidratálás háttérben, limitált párhuzamossággal (NEM await)
+        hydrateAllUrlTracks({ concurrency: 3 }).catch(console.warn);
       }
       init();
     </script>
