@@ -13,6 +13,14 @@
       rel="stylesheet"
     />
 
+    <!-- Gyorsabb első info-lekérésekhez -->
+    <link rel="preconnect" href="https://itunes.apple.com" crossorigin />
+    <link rel="preconnect" href="https://musicbrainz.org" crossorigin />
+    <link rel="preconnect" href="https://coverartarchive.org" crossorigin />
+    <link rel="preconnect" href="https://hu.wikipedia.org" crossorigin />
+    <link rel="preconnect" href="https://en.wikipedia.org" crossorigin />
+    <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
+
     <!-- Bootstrap (grid) -->
     <link
       rel="stylesheet"
@@ -147,7 +155,6 @@
         left: 35vw;
         top: -10vmax;
       }
-
       @keyframes pulse {
         0%,
         100% {
@@ -483,8 +490,7 @@
         background: rgba(255, 255, 255, 0.06);
       }
 
-      /* >>> ÚJ: amikor hosszú-nyomással "armatunk", tiltsuk a natív touch scrollt,
-         hogy függőleges mozdulatra is induljon a drag. */
+      /* Hosszú-nyomáskor ideiglenesen letiltjuk a natív touch scrollt */
       body.reorder-armed #sidebarScroll,
       body.reorder-armed .track-item {
         touch-action: none !important;
@@ -638,7 +644,8 @@
         <div class="col-lg-8 mb-3">
           <div class="player" id="playerCard">
             <div class="cover">
-              <img class="cover-img" src="" alt="Borítókép" />
+              <!-- A fő borító maradhat lazy, a listás thumbok lesznek eager -->
+              <img class="cover-img" src="" alt="Borítókép" loading="lazy" />
             </div>
 
             <div class="meta">
@@ -1014,7 +1021,6 @@
       async function deleteTrack(index, rowEl) {
         const t = playlistMeta.tracks[index];
         if (!t) return;
-
         if (rowEl) {
           rowEl.style.pointerEvents = "none";
           rowEl.classList.add("removing");
@@ -1189,6 +1195,7 @@
           ? '<path d="M216 128L104 208H24C10.7 208 0 218.7 0 232V280c0 13.3 10.7 24 24 24H104l112 80c21.2 15.1 40 2.7 40-18.8V146.8c0-21.6-18.8-33.9-40-18.8zM633.8 458.1L23.8 12.1C14.5 5 1.5 7.1-5.6 16.4s-5.1 23 4.2 30.1l610 446c9.3 7.1 22.3 4.9 29.4-4.4s5.1-23-4.2-30.1z"/>'
           : '<path d="M301.1 34.8C312.6 40 320 51.4 320 64V448c0 12.6-7.4 24-18.9 29.2s-25 3.1-34.4-5.3L131.8 352H64c-35.3 0-64-28.7-64-64V224c0-35.3 28.7-64 64-64h67.8L266.7 40.1c9.4-8.4 22.9-10.4 34.4-5.3zM400 256c0-25.1-10.7-47.7-27.7-63.5-10.3-9.6 10.9-32.1 21.1-22.5C419.2 190.8 432 222.1 432 256s-12.8 65.2-38.6 86c-10.3 8.4-31.4-13-21.1-21.4C389.3 303.7 400 281.1 400 256zM496 256c0-47.9-23-90.4-58.3-116.8-10.4-7.7 10.1-32.5 20.5-24.8C504.9 145.3 528 197.9 528 256s-23.1 110.7-69.7 141.6c-10.4 7.1-31-16.7-20.6-23.9C472.9 346.3 496 303.9 496 256z"/>';
       }
+
       function sniffImageMime(u8) {
         const u = u8 instanceof Uint8Array ? u8 : new Uint8Array(u8);
         if (u.length > 3 && u[0] === 0xff && u[1] === 0xd8 && u[2] === 0xff)
@@ -1368,6 +1375,7 @@
           } catch {}
         }
         track._tagsHydrated = true;
+
         if (changed && !silent) {
           saveMeta(playlistMeta);
           renderTrackList();
@@ -1375,20 +1383,108 @@
         }
         return changed;
       }
-      async function hydrateAllUrlTracks() {
-        let any = false;
-        for (const t of playlistMeta.tracks) {
-          if (t.srcType === "url" && !t._tagsHydrated) {
-            const changed = await hydrateUrlTrack(t, true);
-            any = any || changed;
+
+      /* ======== Hidratálás – limitált párhuzamosság, MINDEN számra ======== */
+      const hydrateQueue = [];
+      let inFlight = 0;
+      const MAX_CONCURRENCY = (() => {
+        const c = navigator.connection?.effectiveType || "";
+        if (/2g|3g|slow-2g/.test(c)) return 1;
+        return 3;
+      })();
+
+      function enqueueHydrationByIndex(idx) {
+        const t = playlistMeta.tracks[idx];
+        if (!t || t.srcType !== "url" || t._tagsHydrated) return;
+        if (hydrateQueue.includes(t)) return;
+        hydrateQueue.push(t);
+        drainHydration();
+      }
+      function enqueueHydrationForAll() {
+        const n = playlistMeta.tracks.length;
+        const order = [];
+        const seen = new Set();
+        const push = (i) => {
+          if (i >= 0 && i < n && !seen.has(i)) {
+            seen.add(i);
+            order.push(i);
           }
+        };
+        push(currentIndex);
+        for (let d = 1; d < n; d++) {
+          push(currentIndex - d);
+          push(currentIndex + d);
         }
-        if (any) saveMeta(playlistMeta);
+        order.forEach(enqueueHydrationByIndex);
+        drainHydration();
+      }
+
+      function updateListItemUI(track) {
+        const row = trackList.querySelector(
+          `.track-item[data-id="${track.id}"]`
+        );
+        if (!row) return;
+        const thumb = row.querySelector(".thumb");
+        resolveTrackCover(track).then((url) => {
+          if (thumb) thumb.src = url || DEFAULT_COVER;
+        });
+        const meta = row.querySelector(".meta");
+        if (meta) {
+          meta.innerHTML = `
+            <div class="t">${track.title || "Ismeretlen cím"}</div>
+            <div class="a">${track.artist || ""}${
+            track.srcType === "temp"
+              ? '<span class="badge" style="margin-left:6px;background:rgba(255,200,0,.15);border-color:rgba(255,200,0,.35);color:#ffd666;">nem tartós</span>'
+              : ""
+          }</div>
+          `;
+        }
+      }
+
+      function drainHydration() {
+        while (inFlight < MAX_CONCURRENCY && hydrateQueue.length) {
+          const t = hydrateQueue.shift();
+          inFlight++;
+          hydrateUrlTrack(t, true)
+            .then((changed) => {
+              if (changed) {
+                saveMeta(playlistMeta);
+                updateListItemUI(t);
+                // ha éppen ez szól, a fő borítót is frissítjük
+                if (playlistMeta.tracks[currentIndex]?.id === t.id)
+                  updateCoverUI(t);
+              }
+            })
+            .catch(() => {})
+            .finally(() => {
+              inFlight--;
+              drainHydration();
+            });
+        }
+      }
+
+      // Láthatóság megfigyelő – maradhat gyorsításnak (de most amúgy is minden sor bekerül a queue-ba)
+      let hydrateObserver = null;
+      function setupHydrationObserver() {
+        if (hydrateObserver) hydrateObserver.disconnect();
+        hydrateObserver = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                const idx = Number(e.target.dataset.index);
+                enqueueHydrationByIndex(idx);
+                hydrateObserver.unobserve(e.target);
+              }
+            }
+          },
+          { root: sidebarScroll, rootMargin: "200px 0px", threshold: 0.01 }
+        );
       }
 
       let suppressClickUntil = 0;
 
       function renderTrackList() {
+        setupHydrationObserver();
         trackList.innerHTML = "";
         playlistMeta.tracks.forEach((t, i) => {
           const el = document.createElement("div");
@@ -1399,6 +1495,10 @@
           const img = document.createElement("img");
           img.className = "thumb";
           img.alt = "";
+          // >>> Ezek a listás képek legyenek EAGER-ek, hogy mind betöltsenek
+          img.loading = "eager";
+          img.decoding = "async";
+          // img.fetchPriority = "low"; // opcionális
           img.src = DEFAULT_COVER;
           img.draggable = false;
           img.onerror = () => (img.src = DEFAULT_COVER);
@@ -1421,13 +1521,13 @@
           delBtn.className = "btn-icon";
           delBtn.title = "Törlés";
           delBtn.setAttribute("aria-label", "Törlés");
-          delBtn.innerHTML = `<svg viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M135.2 17.7C140.6 7.3 151.1 0 162.7 0H285.3c11.6 0 22.1 7.3 27.5 17.7L328 32H416c17.7 0 32 14.3 32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H120l15.2-14.3zM32 160H416l-21.2 292.7c-1.9 26.2-23.7 47.3-50 47.3H103.2c-26.3 0-48.1-21.1-50-47.3L32 160z"/></svg>`;
+          delBtn.innerHTML = `<svg viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M135.2 17.7C140.6 7.3 151.1 0 162.7 0H285.3c11.6 0 22.1 7.3 27.5 17.7L328 32H416c17.7 0 32 14.3 32 32S14.3 96 0 64 14.3 32 32 32H120l15.2-14.3zM32 160H416l-21.2 292.7c-1.9 26.2-23.7 47.3-50 47.3H103.2c-26.3 0-48.1-21.1-50-47.3L32 160z"/></svg>`;
           delBtn.addEventListener("click", (ev) => {
             ev.stopPropagation();
             deleteTrack(i, el);
           });
-
           actions.appendChild(delBtn);
+
           el.appendChild(img);
           el.appendChild(metaDiv);
           el.appendChild(actions);
@@ -1440,9 +1540,11 @@
           });
 
           trackList.appendChild(el);
+          hydrateObserver.observe(el);
         });
         highlightActiveItem();
       }
+
       function highlightActiveItem() {
         [...trackList.children].forEach((x) => x.classList.remove("active"));
         const a = document.querySelector(
@@ -1450,6 +1552,7 @@
         );
         if (a) a.classList.add("active");
       }
+
       async function loadTrack(i) {
         if (!playlistMeta.tracks.length) {
           clearPlayerUI();
@@ -1461,6 +1564,8 @@
         saveMeta(playlistMeta);
 
         const tr = playlistMeta.tracks[currentIndex];
+
+        // Aktív szám azonnal hidratálva
         await hydrateUrlTrack(tr, true);
 
         titleEl.textContent = tr.title || "Ismeretlen cím";
@@ -1480,7 +1585,14 @@
 
         fetchAndRenderInfoFor(tr);
         highlightActiveItem();
+
+        // Szomszédok gyors előkészítése
+        [currentIndex - 1, currentIndex + 1].forEach((idx) => {
+          if (idx >= 0 && idx < playlistMeta.tracks.length)
+            enqueueHydrationByIndex(idx);
+        });
       }
+
       function clearPlayerUI() {
         audio.pause();
         audio.src = "";
@@ -1493,8 +1605,6 @@
         currentTimeEl.textContent = "0:00";
         durationEl.textContent = "0:00";
         setIconPause(false);
-        clearInfo("");
-        clearArtist("");
       }
 
       function updateProgressUI() {
@@ -1786,9 +1896,12 @@
           await loadTrack(firstNew);
           audio.play().then(() => setIconPause(true));
         }
+
+        // Újonnan hozzáadott URL-esek is kerüljenek be a teljes hidratáló sorba
+        enqueueHydrationForAll();
       }
 
-      function jsonp(url, timeoutMs = 8000) {
+      async function jsonp(url, timeoutMs = 8000) {
         return new Promise((resolve, reject) => {
           const cb = "__jp_" + Math.random().toString(36).slice(2);
           const s = document.createElement("script");
@@ -2137,17 +2250,15 @@
           h = window.innerHeight;
         const spanX = w * 1.6,
           spanY = h * 1.6;
-        const tx = rand(-spanX / 2, spanX / 2);
-        const ty = rand(-spanY / 2, spanY / 2);
-        const sc = rand(0.9, 1.15);
-        const dur = rand(18, 42);
-
+        const tx = rand(-spanX / 2, spanX / 2),
+          ty = rand(-spanY / 2, spanY / 2);
+        const sc = rand(0.9, 1.15),
+          dur = rand(18, 42);
         el.style.setProperty("--tx", tx + "px");
         el.style.setProperty("--ty", ty + "px");
         el.style.setProperty("--sc", sc.toFixed(3));
         el.style.setProperty("--dur", dur + "s");
         el.style.opacity = rand(0.48, 0.75).toFixed(2);
-
         clearTimeout(el._wanderTimer);
         el._wanderTimer = setTimeout(
           () => roamBlob(el),
@@ -2234,7 +2345,7 @@
         if (changed) saveMeta(meta);
       }
 
-      /* ======= DRAG & DROP – MOBIL FIX ======= */
+      /* ======= Drag & Drop – mobil fix ======= */
       const dragState = {
         dragging: false,
         startX: 0,
@@ -2248,7 +2359,6 @@
         itemHeight: 0,
         startLeft: 0,
       };
-
       trackList.addEventListener("dragstart", (e) => e.preventDefault());
       function arrayMove(arr, from, to) {
         if (from === to) return arr;
@@ -2256,8 +2366,6 @@
         arr.splice(to, 0, it);
         return arr;
       }
-
-      // Csak a LÁTHATÓ sorokat vesszük (a rejtett húzott elem kimarad)
       function getTrackItems() {
         return Array.from(trackList.querySelectorAll(".track-item")).filter(
           (el) => el.offsetParent !== null && el !== dragState.itemEl
@@ -2276,23 +2384,18 @@
         dragState.itemHeight = rect.height;
         dragState.startLeft = rect.left;
 
-        // PLACEHOLDER az eredeti helyére
         const ph = document.createElement("div");
         ph.className = "track-placeholder";
         ph.style.height = rect.height + "px";
         itemEl.parentElement.insertBefore(ph, itemEl);
         dragState.placeholder = ph;
 
-        // >>> Pointer capture még az elrejtés előtt
         try {
           itemEl.setPointerCapture(pointerId);
         } catch {}
-
-        // Az eredeti elemet kivesszük a layoutból
         itemEl.classList.add("dragging");
         itemEl.style.display = "none";
 
-        // Lebegő ghost (gondoskodjunk róla, hogy ne legyen display:none)
         const ghost = itemEl.cloneNode(true);
         ghost.classList.add("drag-ghost");
         ghost.style.removeProperty("display");
@@ -2304,14 +2407,11 @@
         document.body.appendChild(ghost);
         dragState.ghost = ghost;
 
-        // Hosszú-nyomás "armed" állapot vége; most már tényleg rendezünk
         document.body.classList.remove("reorder-armed");
         sidebarScroll.style.touchAction = "";
         itemEl.style.touchAction = "";
-
         document.body.classList.add("reordering");
       }
-
       function moveGhost(clientY) {
         if (!dragState.dragging || !dragState.ghost) return;
         const g = dragState.ghost;
@@ -2321,7 +2421,6 @@
         g.style.left = x + "px";
         g.style.top = y + "px";
       }
-
       function autoScrollIfNeeded(clientY) {
         const cont = sidebarScroll;
         const rect = cont.getBoundingClientRect();
@@ -2330,7 +2429,6 @@
         if (clientY < rect.top + margin) cont.scrollTop -= speed;
         else if (clientY > rect.bottom - margin) cont.scrollTop += speed;
       }
-
       function indexFromY(y) {
         const items = getTrackItems();
         if (!items.length) return 0;
@@ -2341,7 +2439,6 @@
         }
         return items.length;
       }
-
       function updatePlaceholderPosition(clientY) {
         if (!dragState.placeholder) return;
         const items = getTrackItems();
@@ -2350,34 +2447,28 @@
           trackList.appendChild(dragState.placeholder);
         else trackList.insertBefore(dragState.placeholder, items[targetIndex]);
       }
-
       function placeholderToIndex() {
         const children = Array.from(trackList.children);
         let idx = 0;
         for (const ch of children) {
           if (ch === dragState.placeholder) break;
           if (ch.classList && ch.classList.contains("track-item")) {
-            if (ch === dragState.itemEl) continue; // húzott elem (display:none) kihagyása
+            if (ch === dragState.itemEl) continue;
             idx++;
           }
         }
         return idx;
       }
-
       function finishDrag() {
         if (!dragState.dragging) return;
         const { placeholder, itemEl, ghost, index: fromIdx } = dragState;
-
         const toIdx = placeholderToIndex();
-
-        // Visszaállítás
         itemEl.classList.remove("dragging");
-        itemEl.style.display = ""; // láthatóvá tesszük, de azonnal újrarenderelünk
+        itemEl.style.display = "";
         ghost?.remove();
         placeholder?.remove();
         document.body.classList.remove("reordering");
         document.body.classList.remove("reorder-armed");
-
         dragState.dragging = false;
         dragState.ghost = null;
         dragState.placeholder = null;
@@ -2391,7 +2482,6 @@
 
         const oldCurrent = currentIndex;
         arrayMove(playlistMeta.tracks, fromIdx, toIdx);
-
         if (oldCurrent === fromIdx) currentIndex = toIdx;
         else if (fromIdx < oldCurrent && toIdx >= oldCurrent)
           currentIndex = oldCurrent - 1;
@@ -2402,16 +2492,13 @@
         playlistMeta.currentIndex = currentIndex;
         saveMeta(playlistMeta);
         renderTrackList();
-
         extraEl.textContent = `Sorszám: ${currentIndex + 1} / ${
           playlistMeta.tracks.length
         }`;
         highlightActiveItem();
-
         suppressClickUntil = Date.now() + 300;
       }
 
-      // Hosszú-nyomásos indítás mobilon
       let pressTimer = null;
       let pressedEl = null;
       let pressStartX = 0,
@@ -2419,9 +2506,9 @@
       let pressArmed = false,
         pressCancelled = false;
       let activePointerId = null;
-      const DRAG_THRESHOLD_TOUCH = 10;
-      const DRAG_THRESHOLD_MOUSE = 6;
-      const LONG_PRESS_MS = 320;
+      const DRAG_THRESHOLD_TOUCH = 10,
+        DRAG_THRESHOLD_MOUSE = 6,
+        LONG_PRESS_MS = 320;
 
       trackList.addEventListener("pointerdown", (e) => {
         const item = e.target.closest(".track-item");
@@ -2444,8 +2531,6 @@
               try {
                 navigator.vibrate && navigator.vibrate(10);
               } catch {}
-              // >>> Hosszú-nyomás "armed": ideiglenesen tiltsuk a natív scrollt,
-              // hogy függőleges mozdulatra is induljon a drag
               document.body.classList.add("reorder-armed");
               sidebarScroll.style.touchAction = "none";
               pressedEl.style.touchAction = "none";
@@ -2459,14 +2544,13 @@
             ev.pointerType === "touch"
               ? DRAG_THRESHOLD_TOUCH
               : DRAG_THRESHOLD_MOUSE;
-          const dx = Math.abs(ev.clientX - pressStartX);
-          const dy = Math.abs(ev.clientY - pressStartY);
+          const dx = Math.abs(ev.clientX - pressStartX),
+            dy = Math.abs(ev.clientY - pressStartY);
 
           if (ev.pointerType === "touch" && !pressArmed) {
             if (dx > thresh || dy > thresh) {
               pressCancelled = true;
               clearTimeout(pressTimer);
-              // clean up armed flags if any
               document.body.classList.remove("reorder-armed");
               sidebarScroll.style.touchAction = "";
               if (pressedEl) pressedEl.style.touchAction = "";
@@ -2487,7 +2571,7 @@
             moveGhost(ev.clientY);
             updatePlaceholderPosition(ev.clientY);
             autoScrollIfNeeded(ev.clientY);
-            ev.preventDefault(); // mobil scroll tiltása húzás közben
+            ev.preventDefault();
           }
         };
 
@@ -2496,12 +2580,9 @@
           pressTimer = null;
           pressArmed = false;
           pressCancelled = false;
-
-          // >>> touch-action visszaállítás
           document.body.classList.remove("reorder-armed");
           sidebarScroll.style.touchAction = "";
           if (pressedEl) pressedEl.style.touchAction = "";
-
           if (dragState.dragging) finishDrag();
           teardown();
         };
@@ -2528,13 +2609,13 @@
         });
       });
 
+      // ---------- INIT ----------
       async function init() {
         await detectStorageSupport();
         playlistMeta = loadMeta() || seedDefaultMeta();
         currentIndex = playlistMeta.currentIndex || 0;
 
         await migrateStorage(playlistMeta);
-        await hydrateAllUrlTracks();
 
         playBtn.addEventListener("click", togglePlay);
         prevBtn.addEventListener("click", prevTrack);
@@ -2550,6 +2631,14 @@
         setVolumeIcon(false);
         updateProgressUI();
         updateBufferUI();
+
+        // Teljes hidratálás: idle-ben indítjuk, limitált párhuzamossággal
+        const kickoff = () => {
+          enqueueHydrationForAll();
+        };
+        if ("requestIdleCallback" in window)
+          requestIdleCallback(kickoff, { timeout: 1800 });
+        else setTimeout(kickoff, 1200);
       }
       init();
     </script>
