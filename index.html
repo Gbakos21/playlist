@@ -34,15 +34,13 @@
         box-sizing: border-box;
       }
 
-      /* ====== Görgetés engedélyezése, vízszintes tiltása ====== */
       html,
       body {
         overflow-y: auto;
         overflow-x: hidden;
         width: 100%;
-        background-color: #0f0f14; /* overscroll / üres terület egységes */
+        background-color: #0f0f14;
       }
-
       body {
         margin: 0;
         color: var(--text);
@@ -78,10 +76,9 @@
         overscroll-behavior: none;
       }
 
-      /* ------------ Mozgó “blur blob” háttér réteg ------------ */
       .bg-blobs {
         position: fixed;
-        inset: -60vmax; /* <<< nagy túlfutás */
+        inset: -60vmax;
         z-index: -1;
         pointer-events: none;
         filter: blur(36px) saturate(140%);
@@ -89,8 +86,6 @@
         transition: transform 0.15s ease-out;
         backface-visibility: hidden;
         contain: paint;
-
-        /* <<< Finom elhalványítás a széleken – megszűnik a vízszintes sötét csík */
         -webkit-mask-image: radial-gradient(
           140% 140% at 50% 50%,
           #000 65%,
@@ -170,7 +165,6 @@
         }
       }
 
-      /* ---------- Scrollbar, layout, player UI ---------- */
       * {
         scrollbar-width: thin;
         scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
@@ -381,6 +375,7 @@
         max-height: 520px;
         overflow: auto;
         backdrop-filter: blur(10px) saturate(120%);
+        overscroll-behavior: contain;
       }
       .brand {
         display: flex;
@@ -407,6 +402,10 @@
         transition: background 0.2s ease, transform 0.08s ease,
           opacity 0.15s ease;
         touch-action: pan-y;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
       .track-item:hover {
         background: rgba(255, 255, 255, 0.06);
@@ -422,6 +421,7 @@
       .track-item.dragging {
         touch-action: none;
       }
+
       .track-item .thumb {
         width: 56px;
         height: 56px;
@@ -460,6 +460,8 @@
       body.reordering {
         user-select: none;
         cursor: grabbing;
+        touch-action: none;
+        overscroll-behavior: contain;
       }
       .drag-ghost {
         position: fixed;
@@ -481,6 +483,13 @@
         background: rgba(255, 255, 255, 0.06);
       }
 
+      /* >>> ÚJ: amikor hosszú-nyomással "armatunk", tiltsuk a natív touch scrollt,
+         hogy függőleges mozdulatra is induljon a drag. */
+      body.reorder-armed #sidebarScroll,
+      body.reorder-armed .track-item {
+        touch-action: none !important;
+      }
+
       @media (max-width: 992px) {
         .player {
           grid-template-columns: 1fr;
@@ -496,7 +505,6 @@
         box-shadow: none !important;
       }
 
-      /* --- Kis “i” ikon + tooltip --- */
       .info-pill {
         position: fixed;
         right: 18px;
@@ -522,20 +530,14 @@
         background: rgba(255, 255, 255, 0.2);
         transform: translateY(-1px);
       }
-      /* Tooltip a gomb ALÁ nyílik, így nem lóg ki felfelé */
       .info-pill::after {
         content: attr(data-tip);
         position: absolute;
-        right: 0; /* a gomb jobb széléhez igazítva (balra nyílik) */
-        top: calc(100% + 10px); /* a gomb alá kerül 10px távolsággal */
-        transform: none; /* nincs vertikális eltolás */
+        right: 0;
+        top: calc(100% + 10px);
         max-width: min(80vw, 420px);
-        max-height: min(
-          40vh,
-          260px
-        ); /* ha hosszú a szöveg, görgő jelenik meg */
+        max-height: min(40vh, 260px);
         overflow: auto;
-
         background: rgba(20, 20, 26, 0.95);
         padding: 10px 12px;
         border-radius: 10px;
@@ -553,7 +555,6 @@
         opacity: 1;
       }
 
-      /* --- Infókártyák --- */
       #infoDeck {
         display: block;
         margin-top: 16px;
@@ -612,7 +613,6 @@
     </style>
   </head>
   <body>
-    <!-- Animált, blur “blob” háttér -->
     <div class="bg-blobs" aria-hidden="true">
       <span class="blob b1"></span>
       <span class="blob b2"></span>
@@ -621,7 +621,6 @@
       <span class="blob b5"></span>
     </div>
 
-    <!-- FŐ KONTÉNER -->
     <div class="container-player">
       <div class="brand">
         <span class="badge">Lejátszó</span>
@@ -636,7 +635,6 @@
       </div>
 
       <div class="row">
-        <!-- BAL OSZLOP: LEJÁTSZÓ + ALATTA INFÓ -->
         <div class="col-lg-8 mb-3">
           <div class="player" id="playerCard">
             <div class="cover">
@@ -733,14 +731,10 @@
             </div>
           </div>
 
-          <!-- Külön INFÓKÁRTYA a számhoz -->
           <div id="infoDeck" aria-live="polite"></div>
-
-          <!-- ELŐADÓ INFÓKÁRTYA a lejátszó alatt -->
           <div id="artistDeck" aria-live="polite"></div>
         </div>
 
-        <!-- JOBB OSZLOP: LEJÁTSZÁSI LISTA -->
         <div class="col-lg-4">
           <div class="sidebar" id="sidebarScroll">
             <div
@@ -778,7 +772,6 @@
     />
     <audio id="audioPlayer" preload="metadata"></audio>
 
-    <!-- Tooltip infó gomb (csak ha kell, JS teszi láthatóvá) -->
     <button
       id="persistInfo"
       class="info-pill"
@@ -792,15 +785,13 @@
     <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 
     <script>
-      /* ========= 0) BIZTOS FALLBACK BORÍTÓ (data URI) ========= */
       const DEFAULT_COVER =
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%239B6BFF'/><stop offset='1' stop-color='%23FF6B99'/></linearGradient></defs><rect width='100%' height='100%' fill='url(%23g)'/><g fill='%23ffffff' opacity='.9'><circle cx='110' cy='120' r='8'/><circle cx='300' cy='300' r='90'/><circle cx='500' cy='460' r='12'/></g></svg>";
 
-      /* ========= 1) TARTÓS PLAYLIST + BORÍTÓ KEZELÉS ========= */
       const LS_KEY = "playlist_meta_v4";
       const DB_NAME = "playerDB";
       const DB_STORE = "audio";
-      const COVER_DATAURL_LIMIT = 180_000; // ~180 KB
+      const COVER_DATAURL_LIMIT = 180_000;
       const STORAGE = { ls: true, idb: true };
 
       const uuid = () =>
@@ -1011,7 +1002,6 @@
         }
       }
 
-      // Egy szám törlése a listából + tárhely takarítás
       async function deleteTrack(index, rowEl) {
         const t = playlistMeta.tracks[index];
         if (!t) return;
@@ -1063,21 +1053,18 @@
 
         if (removedWasCurrent) {
           await loadTrack(currentIndex);
-          if (wasPlaying) {
+          if (wasPlaying)
             audio
               .play()
               .then(() => setIconPause(true))
               .catch(() => {});
-          }
         } else {
           highlightActiveItem();
         }
       }
 
-      // Tárolás detektálás + tartós tárolás kérése
       async function detectStorageSupport() {
         const msgs = [];
-
         try {
           localStorage.setItem("__t", "1");
           localStorage.removeItem("__t");
@@ -1141,7 +1128,6 @@
         }
       }
 
-      /* ========= 2) VÁLTOZÓK, DOM ========= */
       let playlistMeta = null,
         currentIndex = 0;
 
@@ -1178,7 +1164,6 @@
       const infoDeck = document.getElementById("infoDeck");
       const artistDeck = document.getElementById("artistDeck");
 
-      /* ========= 3) HELPER ========= */
       function formatTime(sec) {
         if (!isFinite(sec)) return "0:00";
         const s = Math.floor(sec % 60),
@@ -1373,7 +1358,6 @@
             changed = true;
           } catch {}
         }
-
         track._tagsHydrated = true;
         if (changed && !silent) {
           saveMeta(playlistMeta);
@@ -1393,7 +1377,6 @@
         if (any) saveMeta(playlistMeta);
       }
 
-      /* ========= LISTA / BETÖLTÉS ========= */
       let suppressClickUntil = 0;
 
       function renderTrackList() {
@@ -1505,7 +1488,6 @@
         clearArtist("");
       }
 
-      /* ========= PROGRESS ========= */
       function updateProgressUI() {
         if (!isFinite(audio.duration) || audio.duration <= 0) {
           playedEl.style.width = "0%";
@@ -1540,7 +1522,6 @@
         }
       }
 
-      // Scrubbing
       let scrubbing = false;
       function clientXToRatio(clientX) {
         const rect = progressLine.getBoundingClientRect();
@@ -1605,12 +1586,12 @@
         );
       }
       function togglePlay() {
-        if (audio.paused) {
+        if (audio.paused)
           audio
             .play()
             .then(() => setIconPause(true))
             .catch(() => {});
-        } else {
+        else {
           audio.pause();
           setIconPause(false);
         }
@@ -1620,7 +1601,6 @@
         setVolumeIcon(audio.muted);
       }
 
-      /* ========= HOZZÁADÁS ========= */
       newBtn?.addEventListener("click", () => filePicker?.click());
       filePicker?.addEventListener("change", async (e) => {
         const files = Array.from(e.target.files || []);
@@ -1799,7 +1779,6 @@
         }
       }
 
-      /* ========= INFO-KÁRTYA: iTunes + fallback (MB) ========= */
       function jsonp(url, timeoutMs = 8000) {
         return new Promise((resolve, reject) => {
           const cb = "__jp_" + Math.random().toString(36).slice(2);
@@ -1906,7 +1885,6 @@
         };
       }
 
-      /* ========= Keresési segédek ========= */
       function stripDecorations(s) {
         if (!s) return "";
         s = s.replace(/\[[^\]]*\]|\([^)]+\)/g, (m) => {
@@ -1955,7 +1933,6 @@
         return { t, a, altLeft: left, altRight: right };
       }
 
-      /* ========= WIKIPÉDIA: okos keresés ========= */
       const rmDiacritics = (s) =>
         (s || "")
           .normalize("NFD")
@@ -2033,8 +2010,7 @@
         cands.sort((x, y) => scoreCandidate(name, y) - scoreCandidate(name, x));
         for (const c of cands.slice(0, 6)) {
           const sum = await fetchWikipediaSummaryByTitle(c.lang, c.title);
-          if (!sum) continue;
-          if (sum.disambig) continue;
+          if (!sum || sum.disambig) continue;
           if (!isMusicDescription(sum.description || c.description)) {
             const exact =
               rmDiacritics(name) === rmDiacritics(sum.name || c.title);
@@ -2102,7 +2078,6 @@
         });
       }
 
-      /* ========= TRACK + ELŐADÓ INFÓ ========= */
       async function fetchAndRenderInfoFor(track) {
         const { t, a, altLeft, altRight } = cleanSearchMeta(track);
         const pairs = [];
@@ -2145,7 +2120,6 @@
         }
       }
 
-      /* ========= Blur-háttér vándorlás + parallax ========= */
       function rand(min, max) {
         return min + Math.random() * (max - min);
       }
@@ -2212,11 +2186,9 @@
         });
       })();
 
-      /* ========= MIGRÁCIÓ ========= */
       async function migrateStorage(meta) {
         if (!meta || !Array.isArray(meta.tracks)) return;
         let changed = false;
-
         for (const t of meta.tracks) {
           if (t.srcType === "data" && t.src && STORAGE.idb) {
             try {
@@ -2253,7 +2225,7 @@
         if (changed) saveMeta(meta);
       }
 
-      /* ========= DRAG & DROP RENDEZÉS ========= */
+      /* ======= DRAG & DROP – MOBIL FIX ======= */
       const dragState = {
         dragging: false,
         startX: 0,
@@ -2267,12 +2239,20 @@
         itemHeight: 0,
         startLeft: 0,
       };
+
       trackList.addEventListener("dragstart", (e) => e.preventDefault());
       function arrayMove(arr, from, to) {
         if (from === to) return arr;
-        const item = arr.splice(from, 1)[0];
-        arr.splice(to, 0, item);
+        const it = arr.splice(from, 1)[0];
+        arr.splice(to, 0, it);
         return arr;
+      }
+
+      // Csak a LÁTHATÓ sorokat vesszük (a rejtett húzott elem kimarad)
+      function getTrackItems() {
+        return Array.from(trackList.querySelectorAll(".track-item")).filter(
+          (el) => el.offsetParent !== null && el !== dragState.itemEl
+        );
       }
 
       function startDrag(itemEl, pointerId, startX, startY) {
@@ -2287,14 +2267,27 @@
         dragState.itemHeight = rect.height;
         dragState.startLeft = rect.left;
 
+        // PLACEHOLDER az eredeti helyére
         const ph = document.createElement("div");
         ph.className = "track-placeholder";
         ph.style.height = rect.height + "px";
-        itemEl.parentElement.insertBefore(ph, itemEl.nextSibling);
+        itemEl.parentElement.insertBefore(ph, itemEl);
         dragState.placeholder = ph;
 
+        // >>> Pointer capture még az elrejtés előtt
+        try {
+          itemEl.setPointerCapture(pointerId);
+        } catch {}
+
+        // Az eredeti elemet kivesszük a layoutból
+        itemEl.classList.add("dragging");
+        itemEl.style.display = "none";
+
+        // Lebegő ghost (gondoskodjunk róla, hogy ne legyen display:none)
         const ghost = itemEl.cloneNode(true);
         ghost.classList.add("drag-ghost");
+        ghost.style.removeProperty("display");
+        ghost.style.display = "grid";
         ghost.style.width = rect.width + "px";
         ghost.style.height = rect.height + "px";
         ghost.style.left = rect.left + "px";
@@ -2302,10 +2295,14 @@
         document.body.appendChild(ghost);
         dragState.ghost = ghost;
 
-        itemEl.classList.add("dragging");
-        itemEl.style.opacity = "0.0";
+        // Hosszú-nyomás "armed" állapot vége; most már tényleg rendezünk
+        document.body.classList.remove("reorder-armed");
+        sidebarScroll.style.touchAction = "";
+        itemEl.style.touchAction = "";
+
         document.body.classList.add("reordering");
       }
+
       function moveGhost(clientY) {
         if (!dragState.dragging || !dragState.ghost) return;
         const g = dragState.ghost;
@@ -2315,17 +2312,16 @@
         g.style.left = x + "px";
         g.style.top = y + "px";
       }
+
       function autoScrollIfNeeded(clientY) {
         const cont = sidebarScroll;
         const rect = cont.getBoundingClientRect();
-        const margin = 36;
-        const speed = 14;
+        const margin = 36,
+          speed = 14;
         if (clientY < rect.top + margin) cont.scrollTop -= speed;
         else if (clientY > rect.bottom - margin) cont.scrollTop += speed;
       }
-      function getTrackItems() {
-        return Array.from(trackList.querySelectorAll(".track-item"));
-      }
+
       function indexFromY(y) {
         const items = getTrackItems();
         if (!items.length) return 0;
@@ -2336,31 +2332,42 @@
         }
         return items.length;
       }
+
       function updatePlaceholderPosition(clientY) {
         if (!dragState.placeholder) return;
         const items = getTrackItems();
         const targetIndex = indexFromY(clientY);
-        if (targetIndex >= items.length) {
+        if (targetIndex >= items.length)
           trackList.appendChild(dragState.placeholder);
-        } else {
-          trackList.insertBefore(dragState.placeholder, items[targetIndex]);
-        }
+        else trackList.insertBefore(dragState.placeholder, items[targetIndex]);
       }
+
+      function placeholderToIndex() {
+        const children = Array.from(trackList.children);
+        let idx = 0;
+        for (const ch of children) {
+          if (ch === dragState.placeholder) break;
+          if (ch.classList && ch.classList.contains("track-item")) {
+            if (ch === dragState.itemEl) continue; // húzott elem (display:none) kihagyása
+            idx++;
+          }
+        }
+        return idx;
+      }
+
       function finishDrag() {
         if (!dragState.dragging) return;
         const { placeholder, itemEl, ghost, index: fromIdx } = dragState;
 
-        const items = getTrackItems();
-        let toIdx = items.findIndex(
-          (el) => el === placeholder?.nextElementSibling
-        );
-        if (toIdx === -1) toIdx = items.length;
+        const toIdx = placeholderToIndex();
 
+        // Visszaállítás
         itemEl.classList.remove("dragging");
-        itemEl.style.opacity = "";
+        itemEl.style.display = ""; // láthatóvá tesszük, de azonnal újrarenderelünk
         ghost?.remove();
         placeholder?.remove();
         document.body.classList.remove("reordering");
+        document.body.classList.remove("reorder-armed");
 
         dragState.dragging = false;
         dragState.ghost = null;
@@ -2395,13 +2402,13 @@
         suppressClickUntil = Date.now() + 300;
       }
 
-      // Hosszú-nyomásos drag mobilon
+      // Hosszú-nyomásos indítás mobilon
       let pressTimer = null;
       let pressedEl = null;
-      let pressStartX = 0;
-      let pressStartY = 0;
-      let pressArmed = false;
-      let pressCancelled = false;
+      let pressStartX = 0,
+        pressStartY = 0;
+      let pressArmed = false,
+        pressCancelled = false;
       let activePointerId = null;
       const DRAG_THRESHOLD_TOUCH = 10;
       const DRAG_THRESHOLD_MOUSE = 6;
@@ -2425,6 +2432,14 @@
           pressTimer = setTimeout(() => {
             if (!pressCancelled && pressedEl) {
               pressArmed = true;
+              try {
+                navigator.vibrate && navigator.vibrate(10);
+              } catch {}
+              // >>> Hosszú-nyomás "armed": ideiglenesen tiltsuk a natív scrollt,
+              // hogy függőleges mozdulatra is induljon a drag
+              document.body.classList.add("reorder-armed");
+              sidebarScroll.style.touchAction = "none";
+              pressedEl.style.touchAction = "none";
             }
           }, LONG_PRESS_MS);
         }
@@ -2442,6 +2457,10 @@
             if (dx > thresh || dy > thresh) {
               pressCancelled = true;
               clearTimeout(pressTimer);
+              // clean up armed flags if any
+              document.body.classList.remove("reorder-armed");
+              sidebarScroll.style.touchAction = "";
+              if (pressedEl) pressedEl.style.touchAction = "";
               teardown();
               return;
             }
@@ -2456,11 +2475,10 @@
             startDrag(pressedEl, ev.pointerId, pressStartX, pressStartY);
           }
           if (dragState.dragging) {
-            pressedEl.classList.add("dragging");
             moveGhost(ev.clientY);
             updatePlaceholderPosition(ev.clientY);
             autoScrollIfNeeded(ev.clientY);
-            ev.preventDefault();
+            ev.preventDefault(); // mobil scroll tiltása húzás közben
           }
         };
 
@@ -2469,6 +2487,12 @@
           pressTimer = null;
           pressArmed = false;
           pressCancelled = false;
+
+          // >>> touch-action visszaállítás
+          document.body.classList.remove("reorder-armed");
+          sidebarScroll.style.touchAction = "";
+          if (pressedEl) pressedEl.style.touchAction = "";
+
           if (dragState.dragging) finishDrag();
           teardown();
         };
@@ -2495,8 +2519,7 @@
         });
       });
 
-      /* ========= INIT ========= */
-      (async function init() {
+      async function init() {
         await detectStorageSupport();
         playlistMeta = loadMeta() || seedDefaultMeta();
         currentIndex = playlistMeta.currentIndex || 0;
@@ -2518,7 +2541,8 @@
         setVolumeIcon(false);
         updateProgressUI();
         updateBufferUI();
-      })();
+      }
+      init();
     </script>
   </body>
 </html>
