@@ -1,105 +1,2524 @@
 <!DOCTYPE html>
 <html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Modern Zenelejátszó</title>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="style.css">
-    <title>Bootstrap Példa</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Bootstrap (grid) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
+    />
+
     <style>
-        /* Hozzáadott stílusok az azonos méretű SVG-hez */
-        .icon-container {
-            width: 24px;
-            /* Állítsd be az ikonok szélességét a kívánt méretre */
-            height: 24px;
-            /* Állítsd be az ikonok magasságát a kívánt méretre */
+      :root {
+        --bg: #0f0f14;
+        --card: rgba(255, 255, 255, 0.08);
+        --card-strong: rgba(255, 255, 255, 0.12);
+        --text: #f3f5f7;
+        --muted: #c7c9d1;
+        --accent: #ff6b99;
+        --accent-2: #9b6bff;
+        --radius: 18px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+
+      /* ====== Görgetés engedélyezése, vízszintes tiltása ====== */
+      html,
+      body {
+        overflow-y: auto;
+        overflow-x: hidden;
+        width: 100%;
+        background-color: #0f0f14; /* overscroll / üres terület egységes */
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        min-height: 100vh;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(
+            1200px 800px at 80% -10%,
+            rgba(155, 107, 255, 0.35),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 700px at -10% 110%,
+            rgba(255, 107, 153, 0.35),
+            transparent 60%
+          ),
+          radial-gradient(
+            700px 500px at 10% 20%,
+            rgba(71, 178, 255, 0.28),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 600px at 95% 70%,
+            rgba(255, 221, 102, 0.25),
+            transparent 60%
+          ),
+          radial-gradient(
+            600px 500px at 40% 100%,
+            rgba(78, 255, 179, 0.18),
+            transparent 60%
+          ),
+          linear-gradient(180deg, #13131a 0%, #0f0f14 100%);
+        overscroll-behavior: none;
+      }
+
+      /* ------------ Mozgó “blur blob” háttér réteg ------------ */
+      .bg-blobs {
+        position: fixed;
+        inset: -60vmax; /* <<< nagy túlfutás */
+        z-index: -1;
+        pointer-events: none;
+        filter: blur(36px) saturate(140%);
+        transform: translate3d(0, 0, 0);
+        transition: transform 0.15s ease-out;
+        backface-visibility: hidden;
+        contain: paint;
+
+        /* <<< Finom elhalványítás a széleken – megszűnik a vízszintes sötét csík */
+        -webkit-mask-image: radial-gradient(
+          140% 140% at 50% 50%,
+          #000 65%,
+          transparent 100%
+        );
+        mask-image: radial-gradient(
+          140% 140% at 50% 50%,
+          #000 65%,
+          transparent 100%
+        );
+      }
+      .bg-blobs .blob {
+        position: absolute;
+        width: var(--size, 38vmax);
+        height: var(--size, 38vmax);
+        border-radius: 50%;
+        mix-blend-mode: screen;
+        background: radial-gradient(
+          circle at 30% 30%,
+          var(--c, #fff),
+          transparent 60%
+        );
+        transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0)
+          scale(var(--sc, 1));
+        transition-property: transform, opacity;
+        transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+        transition-duration: var(--dur, 36s);
+        opacity: 0.55;
+        will-change: transform, opacity;
+        animation: pulse var(--pulse, 8s) ease-in-out infinite;
+      }
+      .bg-blobs .b1 {
+        --size: 48vmax;
+        --c: rgba(155, 107, 255, 0.75);
+        left: -8vmax;
+        top: -6vmax;
+      }
+      .bg-blobs .b2 {
+        --size: 42vmax;
+        --c: rgba(255, 107, 153, 0.65);
+        right: -10vmax;
+        top: 10vh;
+      }
+      .bg-blobs .b3 {
+        --size: 36vmax;
+        --c: rgba(71, 178, 255, 0.6);
+        left: 10vw;
+        bottom: -12vmax;
+      }
+      .bg-blobs .b4 {
+        --size: 30vmax;
+        --c: rgba(255, 221, 102, 0.55);
+        right: 0;
+        bottom: -8vmax;
+      }
+      .bg-blobs .b5 {
+        --size: 34vmax;
+        --c: rgba(78, 255, 179, 0.55);
+        left: 35vw;
+        top: -10vmax;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.5;
         }
+        50% {
+          opacity: 0.75;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .bg-blobs,
+        .bg-blobs .blob {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- Scrollbar, layout, player UI ---------- */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+      }
+      *::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      *::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.18);
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.28);
+      }
+
+      .container-player {
+        max-width: 980px;
+        margin: 48px auto;
+        padding: 0 16px 24px;
+      }
+      .player {
+        display: grid;
+        grid-template-columns: 200px 1fr 140px;
+        gap: 24px;
+        padding: 24px;
+        border-radius: var(--radius);
+        background: var(--card);
+        backdrop-filter: blur(10px) saturate(120%);
+        -webkit-backdrop-filter: blur(10px) saturate(120%);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .cover {
+        width: 100%;
+        height: 0;
+        padding-bottom: 100%;
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      }
+      .cover .cover-img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.4s ease;
+        display: block;
+      }
+      .cover:hover .cover-img {
+        transform: scale(1.03);
+      }
+
+      .meta h1 {
+        font-size: 1.4rem;
+        margin: 0;
+        font-weight: 700;
+      }
+      .meta h3 {
+        font-size: 0.95rem;
+        margin: 6px 0 2px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .meta h4 {
+        font-size: 0.85rem;
+        margin: 0;
+        font-weight: 500;
+        color: #a6a9b8;
+      }
+
+      #trackArtist,
+      .track-item .meta .a {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 14px;
+      }
+      .btn-ctrl {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        cursor: pointer;
+        background: var(--card-strong);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        transition: transform 0.08s ease, background 0.2s ease,
+          box-shadow 0.2s ease, filter 0.2s ease;
+        user-select: none;
+      }
+      .btn-ctrl svg {
+        width: 22px;
+        height: 22px;
+        fill: var(--text);
+      }
+      .btn-ctrl:hover {
+        background: rgba(255, 255, 255, 0.18);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
+        transform: translateY(-1px);
+      }
+      .btn-ctrl:active {
+        transform: translateY(0);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+      }
+      .btn-primary {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        border: none;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        box-shadow: 0 10px 22px rgba(155, 107, 255, 0.35);
+      }
+
+      .progress {
+        margin-top: 18px;
+      }
+      .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .progress-line {
+        position: relative;
+        flex: 1;
+        height: 16px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .progress-line .bar,
+      .progress-line .buffer,
+      .progress-line .played {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 2px;
+        border-radius: 999px;
+        pointer-events: none;
+      }
+      .progress-line .bar {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .progress-line .buffer {
+        width: 0%;
+        background: rgba(255, 255, 255, 0.35);
+      }
+      .progress-line .played {
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      }
+      .progress-line .knob {
+        position: absolute;
+        top: 50%;
+        left: 0%;
+        transform: translate(-50%, -50%);
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35),
+          0 0 10px rgba(155, 107, 255, 0.5);
+        opacity: 0;
+        transition: opacity 0.12s ease, transform 0.12s ease;
+        pointer-events: none;
+      }
+      .progress-line:hover .knob,
+      .progress-line.scrubbing .knob {
+        opacity: 1;
+      }
+      .time-left,
+      .time-right {
+        font-variant-numeric: tabular-nums;
+        color: #aeb1bf;
+        font-size: 0.85rem;
+      }
+      .time-left {
+        min-width: 56px;
+        text-align: left;
+      }
+      .time-right {
+        min-width: 56px;
+        text-align: right;
+      }
+
+      .sidebar {
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius);
+        padding: 16px;
+        max-height: 520px;
+        overflow: auto;
+        backdrop-filter: blur(10px) saturate(120%);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .badge {
+        font-size: 0.75rem;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .track-item {
+        display: grid;
+        grid-template-columns: 56px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.08s ease,
+          opacity 0.15s ease;
+        touch-action: pan-y;
+      }
+      .track-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+        transform: translateY(-1px);
+      }
+      .track-item.active {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .track-item.removing {
+        opacity: 0.45;
+        transform: scale(0.99);
+      }
+      .track-item.dragging {
+        touch-action: none;
+      }
+      .track-item .thumb {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 10px;
+        background: #222;
+      }
+      .track-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-icon {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        cursor: pointer;
+        transition: transform 0.08s ease, background 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .btn-icon:hover {
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+        transform: translateY(-1px);
+      }
+      .btn-icon svg {
+        width: 16px;
+        height: 16px;
+        fill: #e3e5ea;
+      }
+
+      body.reordering {
+        user-select: none;
+        cursor: grabbing;
+      }
+      .drag-ghost {
+        position: fixed;
+        z-index: 9999;
+        pointer-events: none;
+        opacity: 0.98;
+        transform: translate3d(0, 0, 0);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45),
+          0 2px 0 rgba(255, 255, 255, 0.05) inset;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        backdrop-filter: blur(6px) saturate(120%);
+      }
+      .track-placeholder {
+        border: 2px dashed rgba(255, 255, 255, 0.35);
+        border-radius: 12px;
+        margin: 4px 0;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      @media (max-width: 992px) {
+        .player {
+          grid-template-columns: 1fr;
+        }
+      }
+      .player .progress {
+        background: transparent !important;
+        height: auto !important;
+        border-radius: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+      }
+
+      /* --- Kis “i” ikon + tooltip --- */
+      .info-pill {
+        position: fixed;
+        right: 18px;
+        top: 18px;
+        z-index: 50;
+        display: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+        color: #fff;
+        font: 600 14px/1 Inter, system-ui, sans-serif;
+        cursor: help;
+        user-select: none;
+      }
+      .info-pill.show {
+        display: grid;
+        place-items: center;
+      }
+      .info-pill:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+      }
+      /* Tooltip a gomb ALÁ nyílik, így nem lóg ki felfelé */
+      .info-pill::after {
+        content: attr(data-tip);
+        position: absolute;
+        right: 0; /* a gomb jobb széléhez igazítva (balra nyílik) */
+        top: calc(100% + 10px); /* a gomb alá kerül 10px távolsággal */
+        transform: none; /* nincs vertikális eltolás */
+        max-width: min(80vw, 420px);
+        max-height: min(
+          40vh,
+          260px
+        ); /* ha hosszú a szöveg, görgő jelenik meg */
+        overflow: auto;
+
+        background: rgba(20, 20, 26, 0.95);
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        color: #dfe2ea;
+        font-size: 0.85rem;
+        line-height: 1.25;
+        white-space: normal;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+      }
+      .info-pill:hover::after {
+        opacity: 1;
+      }
+
+      /* --- Infókártyák --- */
+      #infoDeck {
+        display: block;
+        margin-top: 16px;
+        z-index: 0;
+      }
+      #artistDeck {
+        display: block;
+        margin-top: 12px;
+        z-index: 0;
+      }
+      .info-card {
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 12px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+      .info-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .info-art {
+        width: 56px;
+        height: 56px;
+        border-radius: 10px;
+        object-fit: cover;
+        background: #222;
+      }
+      .info-title {
+        font-weight: 600;
+      }
+      .info-sub {
+        font-size: 0.85rem;
+        color: #aeb1bf;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .info-link {
+        font-size: 0.85rem;
+        display: inline-block;
+        margin-top: 4px;
+        color: #fff;
+        text-decoration: underline dotted rgba(255, 255, 255, 0.4);
+      }
+      .artist-bio {
+        font-size: 0.9rem;
+        color: #dfe2ea;
+        opacity: 0.9;
+        margin-top: 6px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
     </style>
-</head>
-
-<body>
-
-
-    <div class="container full">
-        <div class="row main">
-            <div class="col-3">
-                <div class="mb-2">
-                    <img class="image" src="test.jpg">
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="mb-2">
-                    <h1>Zene címe</h1>
-                    <h3>Előadó</h3>
-                    <h4>Valami pluszcucc</h4>
-                </div>
-            </div>
-            <div class="col-3">
-                <div class="mb-2 h-100">
-                    <div class="d-flex align-items-end flex-row h-100">
-                        <div class="row butt">
-                            <div class="col-3" id="playButton">
-                                <div class="mb-2  icon-container d-flex align-items-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
-                                        <path
-                                            d="M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM188.3 147.1c-7.6 4.2-12.3 12.3-12.3 20.9V344c0 8.7 4.7 16.7 12.3 20.9s16.8 4.1 24.3-.5l144-88c7.1-4.4 11.5-12.1 11.5-20.5s-4.4-16.1-11.5-20.5l-144-88c-7.4-4.5-16.7-4.7-24.3-.5z" />
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="col-3" id="beforeButton">
-                                <div class="mb-2 icon-container d-flex align-items-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 320 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
-                                        <path
-                                            d="M267.5 440.6c9.5 7.9 22.8 9.7 34.1 4.4s18.4-16.6 18.4-29V96c0-12.4-7.2-23.7-18.4-29s-24.5-3.6-34.1 4.4l-192 160L64 241V96c0-17.7-14.3-32-32-32S0 78.3 0 96V416c0 17.7 14.3 32 32 32s32-14.3 32-32V271l11.5 9.6 192 160z" />
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="col-3" id="afterButton">
-                                <div class="mb-2 icon-container d-flex align-items-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 320 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
-                                        <path
-                                            d="M52.5 440.6c-9.5 7.9-22.8 9.7-34.1 4.4S0 428.4 0 416V96C0 83.6 7.2 72.3 18.4 67s24.5-3.6 34.1 4.4l192 160L256 241V96c0-17.7 14.3-32 32-32s32 14.3 32 32V416c0 17.7-14.3 32-32 32s-32-14.3-32-32V271l-11.5 9.6-192 160z" />
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="col-3" id="muteButton">
-                                <div class="mb-2 icon-container d-flex align-items-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 640 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
-                                        <path
-                                            d="M533.6 32.5C598.5 85.2 640 165.8 640 256s-41.5 170.7-106.4 223.5c-10.3 8.4-25.4 6.8-33.8-3.5s-6.8-25.4 3.5-33.8C557.5 398.2 592 331.2 592 256s-34.5-142.2-88.7-186.3c-10.3-8.4-11.8-23.5-3.5-33.8s23.5-11.8 33.8-3.5zM473.1 107c43.2 35.2 70.9 88.9 70.9 149s-27.7 113.8-70.9 149c-10.3 8.4-25.4 6.8-33.8-3.5s-6.8-25.4 3.5-33.8C475.3 341.3 496 301.1 496 256s-20.7-85.3-53.2-111.8c-10.3-8.4-11.8-23.5-3.5-33.8s23.5-11.8 33.8-3.5zm-60.5 74.5C434.1 199.1 448 225.9 448 256s-13.9 56.9-35.4 74.5c-10.3 8.4-25.4 6.8-33.8-3.5s-6.8-25.4 3.5-33.8C393.1 284.4 400 271 400 256s-6.9-28.4-17.7-37.3c-10.3-8.4-11.8-23.5-3.5-33.8s23.5-11.8 33.8-3.5zM301.1 34.8C312.6 40 320 51.4 320 64V448c0 12.6-7.4 24-18.9 29.2s-25 3.1-34.4-5.3L131.8 352H64c-35.3 0-64-28.7-64-64V224c0-35.3 28.7-64 64-64h67.8L266.7 40.1c9.4-8.4 22.9-10.4 34.4-5.3z" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12 second">
-                
-            </div>
-        </div>
-        <div class="row mt-3">
-            <div class="col-12">
-                <div class="d-flex w-100 justify-content-center">
-                    <button type="button" id="newMusicButton" class="btn btn-secondary">New music</button>
-                </div>
-            </div>
-        </div>
+  </head>
+  <body>
+    <!-- Animált, blur “blob” háttér -->
+    <div class="bg-blobs" aria-hidden="true">
+      <span class="blob b1"></span>
+      <span class="blob b2"></span>
+      <span class="blob b3"></span>
+      <span class="blob b4"></span>
+      <span class="blob b5"></span>
     </div>
 
-    <script src="script.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- FŐ KONTÉNER -->
+    <div class="container-player">
+      <div class="brand">
+        <span class="badge">Lejátszó</span>
+        <div
+          style="
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+          "
+        ></div>
+      </div>
 
-</body>
+      <div class="row">
+        <!-- BAL OSZLOP: LEJÁTSZÓ + ALATTA INFÓ -->
+        <div class="col-lg-8 mb-3">
+          <div class="player" id="playerCard">
+            <div class="cover">
+              <img class="cover-img" src="" alt="Borítókép" />
+            </div>
 
+            <div class="meta">
+              <h1 id="trackTitle">Zene címe</h1>
+              <h3 id="trackArtist">Előadó</h3>
+              <h4 id="trackExtra">Sorszám</h4>
+
+              <div class="controls" aria-label="Lejátszás vezérlők">
+                <button
+                  id="beforeButton"
+                  class="btn-ctrl"
+                  title="Előző"
+                  aria-label="Előző"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
+                    <path
+                      d="M267.5 440.6c9.5 7.9 22.8 9.7 34.1 4.4s18.4-16.6 18.4-29V96c0-12.4-7.2-23.7-18.4-29s-24.5-3.6-34.1 4.4l-192 160L64 241V96c0-17.7-14.3-32-32-32S0 78.3 0 96V416c0 17.7 14.3 32 32 32s32-14.3 32-32V271l11.5 9.6 192 160z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  id="playButton"
+                  class="btn-ctrl btn-primary"
+                  title="Lejátszás / Szünet"
+                  aria-label="Lejátszás / Szünet"
+                >
+                  <svg
+                    id="playIcon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 512 512"
+                  >
+                    <path
+                      d="M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM188.3 147.1c-7.6 4.2-12.3 12.3-12.3 20.9V344c0 8.7 4.7 16.7 12.3 20.9s16.8 4.1 24.3-.5l144-88c7.1-4.4 11.5-12.1 11.5-20.5s-4.4-16.1-11.5-20.5l-144-88c-7.4-4.5-16.7-4.7-24.3-.5z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  id="afterButton"
+                  class="btn-ctrl"
+                  title="Következő"
+                  aria-label="Következő"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
+                    <path
+                      d="M52.5 440.6c-9.5 7.9-22.8 9.7-34.1 4.4S0 428.4 0 416V96C0 83.6 7.2 72.3 18.4 67s24.5-3.6 34.1 4.4l192 160L256 241V96c0-17.7 14.3-32 32-32s32 14.3 32 32V416c0 17.7-14.3 32-32 32s-32-14.3-32-32V271l-11.5 9.6-192 160z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  id="muteButton"
+                  class="btn-ctrl"
+                  title="Némítás"
+                  aria-label="Némítás"
+                >
+                  <svg
+                    id="volumeIcon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 640 512"
+                  >
+                    <path
+                      d="M301.1 34.8C312.6 40 320 51.4 320 64V448c0 12.6-7.4 24-18.9 29.2s-25 3.1-34.4-5.3L131.8 352H64c-35.3 0-64-28.7-64-64V224c0-35.3 28.7-64 64-64h67.8L266.7 40.1c9.4-8.4 22.9-10.4 34.4-5.3zM400 256c0-25.1-10.7-47.7-27.7-63.5-10.3-9.6 10.9-32.1 21.1-22.5C419.2 190.8 432 222.1 432 256s-12.8 65.2-38.6 86c-10.3 8.4-31.4-13-21.1-21.4C389.3 303.7 400 281.1 400 256zM496 256c0-47.9-23-90.4-58.3-116.8-10.4-7.7 10.1-32.5 20.5-24.8C504.9 145.3 528 197.9 528 256s-23.1 110.7-69.7 141.6c-10.4 7.1-31-16.7-20.6-23.9C472.9 346.3 496 303.9 496 256z"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="progress">
+                <div class="progress-row">
+                  <div class="time-left">
+                    <span id="currentTime">0:00</span>
+                  </div>
+                  <div
+                    id="progressLine"
+                    class="progress-line"
+                    role="slider"
+                    aria-label="Lejátszási pozíció"
+                    tabindex="0"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="0"
+                  >
+                    <div class="bar"></div>
+                    <div class="buffer" id="buf"></div>
+                    <div class="played" id="played"></div>
+                    <div class="knob" id="knob"></div>
+                  </div>
+                  <div class="time-right"><span id="duration">0:00</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Külön INFÓKÁRTYA a számhoz -->
+          <div id="infoDeck" aria-live="polite"></div>
+
+          <!-- ELŐADÓ INFÓKÁRTYA a lejátszó alatt -->
+          <div id="artistDeck" aria-live="polite"></div>
+        </div>
+
+        <!-- JOBB OSZLOP: LEJÁTSZÁSI LISTA -->
+        <div class="col-lg-4">
+          <div class="sidebar" id="sidebarScroll">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+              "
+            >
+              <strong>Lejátszási lista</strong>
+              <button
+                id="newMusicButton"
+                class="btn btn-sm btn-outline-light"
+                style="
+                  border-color: rgba(255, 255, 255, 0.2);
+                  background: rgba(255, 255, 255, 0.06);
+                "
+              >
+                Új zene
+              </button>
+            </div>
+            <div id="trackList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <input
+      type="file"
+      id="filePicker"
+      accept="audio/*,image/*"
+      multiple
+      hidden
+    />
+    <audio id="audioPlayer" preload="metadata"></audio>
+
+    <!-- Tooltip infó gomb (csak ha kell, JS teszi láthatóvá) -->
+    <button
+      id="persistInfo"
+      class="info-pill"
+      type="button"
+      aria-label="Tárolás információ"
+      data-tip=""
+    >
+      i
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
+
+    <script>
+      /* ========= 0) BIZTOS FALLBACK BORÍTÓ (data URI) ========= */
+      const DEFAULT_COVER =
+        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%239B6BFF'/><stop offset='1' stop-color='%23FF6B99'/></linearGradient></defs><rect width='100%' height='100%' fill='url(%23g)'/><g fill='%23ffffff' opacity='.9'><circle cx='110' cy='120' r='8'/><circle cx='300' cy='300' r='90'/><circle cx='500' cy='460' r='12'/></g></svg>";
+
+      /* ========= 1) TARTÓS PLAYLIST + BORÍTÓ KEZELÉS ========= */
+      const LS_KEY = "playlist_meta_v4";
+      const DB_NAME = "playerDB";
+      const DB_STORE = "audio";
+      const COVER_DATAURL_LIMIT = 180_000; // ~180 KB
+      const STORAGE = { ls: true, idb: true };
+
+      const uuid = () =>
+        Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+      function idbOpen() {
+        return new Promise((resolve, reject) => {
+          try {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = () => {
+              const db = req.result;
+              if (!db.objectStoreNames.contains(DB_STORE))
+                db.createObjectStore(DB_STORE);
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () =>
+              reject(req.error || new Error("IndexedDB hiba"));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+      async function idbPut(key, blob) {
+        const db = await idbOpen();
+        return new Promise((resolve, reject) => {
+          try {
+            const tx = db.transaction(DB_STORE, "readwrite");
+            tx.objectStore(DB_STORE).put(blob, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error || new Error("IDB put hiba"));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+      async function idbGet(key) {
+        const db = await idbOpen();
+        return new Promise((resolve, reject) => {
+          try {
+            const tx = db.transaction(DB_STORE, "readonly");
+            const req = tx.objectStore(DB_STORE).get(key);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error || new Error("IDB get hiba"));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+      async function idbDelete(key) {
+        if (!key) return;
+        const db = await idbOpen();
+        return new Promise((resolve, reject) => {
+          try {
+            const tx = db.transaction(DB_STORE, "readwrite");
+            tx.objectStore(DB_STORE).delete(key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error || new Error("IDB delete hiba"));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+
+      function seedDefaultMeta() {
+        return {
+          version: 4,
+          currentIndex: 0,
+          tracks: [
+            {
+              id: uuid(),
+              title: "Music 1",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_1.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+            {
+              id: uuid(),
+              title: "Music 2",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_4.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+            {
+              id: uuid(),
+              title: "Music 3",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_2.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+            {
+              id: uuid(),
+              title: "Music 4",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_3.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+            {
+              id: uuid(),
+              title: "Music 5",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_5.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+            {
+              id: uuid(),
+              title: "Music 6",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_6.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+            {
+              id: uuid(),
+              title: "Music 7",
+              artist: "Beépített minta",
+              srcType: "url",
+              src: "music_7.mp3",
+              coverType: "data",
+              cover: DEFAULT_COVER,
+            },
+          ],
+        };
+      }
+
+      function loadMeta() {
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          if (!raw) return null;
+          const meta = JSON.parse(raw);
+          if (!meta || !Array.isArray(meta.tracks)) return null;
+
+          let changed = false;
+          const filenameToTitle = (src) => {
+            if (!src || typeof src !== "string") return "";
+            try {
+              const last = src.split("/").pop() || src;
+              return last.replace(/\.[^/.]+$/, "");
+            } catch {
+              return "";
+            }
+          };
+
+          meta.tracks.forEach((t) => {
+            if (
+              !t.coverType ||
+              (t.coverType !== "data" && !t.cover && !t.coverIdbKey)
+            ) {
+              t.coverType = "data";
+              t.cover = DEFAULT_COVER;
+              changed = true;
+            }
+            if (!t.title || !t.title.trim()) {
+              t.title = filenameToTitle(t.src) || "Ismeretlen cím";
+              changed = true;
+            }
+            if (!t.artist || !t.artist.trim()) {
+              t.artist = "Beépített minta";
+              changed = true;
+            }
+          });
+
+          if (changed) {
+            meta.version = 4;
+            saveMeta(meta);
+          }
+          return meta;
+        } catch {
+          return null;
+        }
+      }
+
+      function saveMeta(meta) {
+        try {
+          localStorage.setItem(
+            LS_KEY,
+            JSON.stringify({
+              version: 4,
+              currentIndex: meta.currentIndex ?? 0,
+              tracks: meta.tracks.map((t) => ({
+                id: t.id,
+                title: t.title,
+                artist: t.artist,
+                srcType: t.srcType,
+                src: t.srcType === "url" ? t.src : undefined,
+                idbKey: t.srcType === "idb" ? t.idbKey : undefined,
+                coverType: t.coverType,
+                cover:
+                  t.coverType === "data" || t.coverType === "url"
+                    ? t.cover
+                    : undefined,
+                coverIdbKey: t.coverType === "idb" ? t.coverIdbKey : undefined,
+              })),
+            })
+          );
+        } catch (err) {
+          console.warn("Nem sikerült menteni a localStorage-be:", err);
+        }
+      }
+
+      // Egy szám törlése a listából + tárhely takarítás
+      async function deleteTrack(index, rowEl) {
+        const t = playlistMeta.tracks[index];
+        if (!t) return;
+
+        if (rowEl) {
+          rowEl.style.pointerEvents = "none";
+          rowEl.classList.add("removing");
+          await new Promise((r) => setTimeout(r, 120));
+        }
+
+        const oldCurrent = currentIndex;
+        const removedWasCurrent = index === oldCurrent;
+        const wasPlaying = !audio.paused;
+
+        try {
+          if (t._objectURL) URL.revokeObjectURL(t._objectURL);
+        } catch {}
+        try {
+          if (t._coverObjectURL) URL.revokeObjectURL(t._coverObjectURL);
+        } catch {}
+
+        try {
+          if (t.srcType === "idb" && t.idbKey) await idbDelete(t.idbKey);
+          if (t.coverType === "idb" && t.coverIdbKey)
+            await idbDelete(t.coverIdbKey);
+        } catch (e) {
+          console.warn("IDB törlés hiba:", e);
+        }
+
+        playlistMeta.tracks.splice(index, 1);
+
+        if (!playlistMeta.tracks.length) {
+          currentIndex = 0;
+          playlistMeta.currentIndex = 0;
+          saveMeta(playlistMeta);
+          renderTrackList();
+          clearPlayerUI();
+          return;
+        }
+
+        if (index < oldCurrent) currentIndex = oldCurrent - 1;
+        else if (index === oldCurrent)
+          currentIndex = Math.min(oldCurrent, playlistMeta.tracks.length - 1);
+        else currentIndex = oldCurrent;
+
+        playlistMeta.currentIndex = currentIndex;
+        saveMeta(playlistMeta);
+        renderTrackList();
+
+        if (removedWasCurrent) {
+          await loadTrack(currentIndex);
+          if (wasPlaying) {
+            audio
+              .play()
+              .then(() => setIconPause(true))
+              .catch(() => {});
+          }
+        } else {
+          highlightActiveItem();
+        }
+      }
+
+      // Tárolás detektálás + tartós tárolás kérése
+      async function detectStorageSupport() {
+        const msgs = [];
+
+        try {
+          localStorage.setItem("__t", "1");
+          localStorage.removeItem("__t");
+          STORAGE.ls = true;
+        } catch {
+          STORAGE.ls = false;
+          msgs.push("LocalStorage nem elérhető (inkognitó/sandbox?).");
+        }
+
+        await new Promise((resolve) => {
+          try {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = () => {
+              try {
+                req.result.createObjectStore(DB_STORE);
+              } catch {}
+            };
+            req.onsuccess = () => {
+              STORAGE.idb = true;
+              try {
+                req.result.close();
+              } catch {}
+              resolve();
+            };
+            req.onerror = () => {
+              STORAGE.idb = false;
+              msgs.push(
+                "IndexedDB nem elérhető – a nagy fájlok nem lesznek tartósak."
+              );
+              resolve();
+            };
+          } catch {
+            STORAGE.idb = false;
+            msgs.push(
+              "IndexedDB nem elérhető – a nagy fájlok nem lesznek tartósak."
+            );
+            resolve();
+          }
+        });
+
+        try {
+          if (navigator.storage && navigator.storage.persist) {
+            const persisted = await navigator.storage.persisted();
+            if (!persisted) {
+              const ok = await navigator.storage.persist();
+              if (!ok)
+                msgs.push(
+                  "A böngésző bármikor törölheti a helyi fájlokat (persist nem engedélyezett)."
+                );
+            }
+          }
+        } catch {}
+
+        const infoBtn = document.getElementById("persistInfo");
+        if (msgs.length) {
+          infoBtn?.setAttribute("data-tip", "Figyelem: " + msgs.join(" "));
+          infoBtn?.classList.add("show");
+        } else {
+          infoBtn?.classList.remove("show");
+          infoBtn?.removeAttribute("data-tip");
+        }
+      }
+
+      /* ========= 2) VÁLTOZÓK, DOM ========= */
+      let playlistMeta = null,
+        currentIndex = 0;
+
+      const audio = document.getElementById("audioPlayer");
+      const playBtn = document.getElementById("playButton");
+      const prevBtn = document.getElementById("beforeButton");
+      const nextBtn = document.getElementById("afterButton");
+      const muteBtn = document.getElementById("muteButton");
+      const playIcon = document.getElementById("playIcon");
+      const volumeIcon = document.getElementById("volumeIcon");
+
+      const progressLine = document.getElementById("progressLine");
+      const playedEl = document.getElementById("played");
+      const bufferEl = document.getElementById("buf");
+      const knobEl = document.getElementById("knob");
+
+      const currentTimeEl = document.getElementById("currentTime");
+      const durationEl = document.getElementById("duration");
+
+      const titleEl = document.getElementById("trackTitle");
+      const artistEl = document.getElementById("trackArtist");
+      const extraEl = document.getElementById("trackExtra");
+      const coverEl = document.querySelector(".cover-img");
+      coverEl.onerror = () => {
+        coverEl.onerror = null;
+        coverEl.src = DEFAULT_COVER;
+      };
+
+      const trackList = document.getElementById("trackList");
+      const sidebarScroll = document.getElementById("sidebarScroll");
+      const filePicker = document.getElementById("filePicker");
+      const newBtn = document.getElementById("newMusicButton");
+
+      const infoDeck = document.getElementById("infoDeck");
+      const artistDeck = document.getElementById("artistDeck");
+
+      /* ========= 3) HELPER ========= */
+      function formatTime(sec) {
+        if (!isFinite(sec)) return "0:00";
+        const s = Math.floor(sec % 60),
+          m = Math.floor(sec / 60);
+        return `${m}:${s.toString().padStart(2, "0")}`;
+      }
+      function setIconPause(isPause) {
+        playIcon.innerHTML = isPause
+          ? '<path d="M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM192 160c17.7 0 32 14.3 32 32V320c0 17.7-14.3 32-32 32s-32-14.3-32-32V192c0-17.7 14.3-32 32-32zm160 0c17.7 0 32 14.3 32 32V320c0 17.7-14.3 32-32 32s-32-14.3-32-32V192c0-17.7 14.3-32 32-32z"/>'
+          : '<path d="M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM188.3 147.1c-7.6 4.2-12.3 12.3-12.3 20.9V344c0 8.7 4.7 16.7 12.3 20.9s16.8 4.1 24.3-.5l144-88c7.1-4.4 11.5-12.1 11.5-20.5s-4.4-16.1-11.5-20.5l-144-88c-7.4-4.5-16.7-4.7-24.3-.5z"/>';
+      }
+      function setVolumeIcon(m) {
+        volumeIcon.innerHTML = m
+          ? '<path d="M216 128L104 208H24C10.7 208 0 218.7 0 232V280c0 13.3 10.7 24 24 24H104l112 80c21.2 15.1 40 2.7 40-18.8V146.8c0-21.6-18.8-33.9-40-18.8zM633.8 458.1L23.8 12.1C14.5 5 1.5 7.1-5.6 16.4s-5.1 23 4.2 30.1l610 446c9.3 7.1 22.3 4.9 29.4-4.4s5.1-23-4.2-30.1z"/>'
+          : '<path d="M301.1 34.8C312.6 40 320 51.4 320 64V448c0 12.6-7.4 24-18.9 29.2s-25 3.1-34.4-5.3L131.8 352H64c-35.3 0-64-28.7-64-64V224c0-35.3 28.7-64 64-64h67.8L266.7 40.1c9.4-8.4 22.9-10.4 34.4-5.3zM400 256c0-25.1-10.7-47.7-27.7-63.5-10.3-9.6 10.9-32.1 21.1-22.5C419.2 190.8 432 222.1 432 256s-12.8 65.2-38.6 86c-10.3 8.4-31.4-13-21.1-21.4C389.3 303.7 400 281.1 400 256zM496 256c0-47.9-23-90.4-58.3-116.8-10.4-7.7 10.1-32.5 20.5-24.8C504.9 145.3 528 197.9 528 256s-23.1 110.7-69.7 141.6c-10.4 7.1-31-16.7-20.6-23.9C472.9 346.3 496 303.9 496 256z"/>';
+      }
+      function sniffImageMime(u8) {
+        const u = u8 instanceof Uint8Array ? u8 : new Uint8Array(u8);
+        if (u.length > 3 && u[0] === 0xff && u[1] === 0xd8 && u[2] === 0xff)
+          return "image/jpeg";
+        if (
+          u.length > 8 &&
+          u[0] === 0x89 &&
+          u[1] === 0x50 &&
+          u[2] === 0x4e &&
+          u[3] === 0x47 &&
+          u[4] === 0x0d &&
+          u[5] === 0x0a &&
+          u[6] === 0x1a &&
+          u[7] === 0x0a
+        )
+          return "image/png";
+        if (
+          u.length > 6 &&
+          u[0] === 0x47 &&
+          u[1] === 0x49 &&
+          u[2] === 0x46 &&
+          u[3] === 0x38
+        )
+          return "image/gif";
+        if (
+          u.length > 12 &&
+          u[0] === 0x52 &&
+          u[1] === 0x49 &&
+          u[2] === 0x46 &&
+          u[3] === 0x46 &&
+          u[8] === 0x57 &&
+          u[9] === 0x45 &&
+          u[10] === 0x42 &&
+          u[11] === 0x50
+        )
+          return "image/webp";
+        return null;
+      }
+      function dataURLtoBlob(dataUrl) {
+        const [head, b64] = dataUrl.split(",");
+        const mime =
+          (head.match(/data:([^;]+)/) || [])[1] || "application/octet-stream";
+        const bin = atob(b64);
+        const len = bin.length;
+        const u = new Uint8Array(len);
+        for (let i = 0; i < len; i++) u[i] = bin.charCodeAt(i);
+        return new Blob([u], { type: mime });
+      }
+
+      async function readTagsFromUrl(src) {
+        if (!window.jsmediatags) return null;
+        const read = (input) =>
+          new Promise((resolve) => {
+            try {
+              new window.jsmediatags.Reader(input)
+                .setTagsToRead(["title", "artist", "picture"])
+                .read({
+                  onSuccess: (tag) => resolve(tag),
+                  onError: () => resolve(null),
+                });
+            } catch {
+              resolve(null);
+            }
+          });
+        let tags = await read(src);
+        if (tags) return tags;
+        try {
+          const resp = await fetch(src, { mode: "cors", cache: "no-store" });
+          if (!resp.ok) return null;
+          const blob = await resp.blob();
+          tags = await read(blob);
+          return tags;
+        } catch {
+          return null;
+        }
+      }
+
+      async function resolveTrackSrc(track) {
+        if (track.srcType === "idb") {
+          if (track._objectURL) return track._objectURL;
+          if (!track.idbKey) return "";
+          try {
+            const blob = await idbGet(track.idbKey);
+            if (!blob) return "";
+            const url = URL.createObjectURL(blob);
+            track._objectURL = url;
+            return url;
+          } catch {
+            return "";
+          }
+        }
+        if (track.srcType === "temp") return track._objectURL || "";
+        return track.src;
+      }
+      async function resolveTrackCover(track) {
+        if (track.coverType === "idb") {
+          if (track._coverObjectURL) return track._coverObjectURL;
+          if (!track.coverIdbKey) return DEFAULT_COVER;
+          try {
+            const blob = await idbGet(track.coverIdbKey);
+            if (!blob) return DEFAULT_COVER;
+            const url = URL.createObjectURL(blob);
+            track._coverObjectURL = url;
+            return url;
+          } catch {
+            return DEFAULT_COVER;
+          }
+        }
+        return track.cover || DEFAULT_COVER;
+      }
+      async function updateCoverUI(track = playlistMeta.tracks[currentIndex]) {
+        try {
+          coverEl.src = (await resolveTrackCover(track)) || DEFAULT_COVER;
+        } catch {
+          coverEl.src = DEFAULT_COVER;
+        }
+      }
+
+      async function hydrateUrlTrack(track, silent = false) {
+        if (!track || track.srcType !== "url" || track._tagsHydrated)
+          return false;
+        const tags = await readTagsFromUrl(track.src);
+        if (!tags) {
+          track._tagsHydrated = true;
+          return false;
+        }
+
+        let changed = false;
+        if (tags.tags?.title) {
+          track.title = tags.tags.title;
+          changed = true;
+        }
+        if (tags.tags?.artist) {
+          track.artist = tags.tags.artist;
+          changed = true;
+        }
+
+        const pic = tags.tags?.picture;
+        if (pic && pic.data && pic.data.length) {
+          try {
+            const bytes = new Uint8Array(pic.data);
+            const detected = sniffImageMime(bytes);
+            const mime = detected || pic.format || "image/jpeg";
+            const blob = new Blob([bytes], { type: mime });
+
+            let coverSaved = false;
+            try {
+              const fr = new FileReader();
+              const coverDataUrl = await new Promise((res, rej) => {
+                fr.onload = () => res(fr.result);
+                fr.onerror = rej;
+                fr.readAsDataURL(blob);
+              });
+              if (coverDataUrl && coverDataUrl.length < COVER_DATAURL_LIMIT) {
+                track.coverType = "data";
+                track.cover = coverDataUrl;
+                coverSaved = true;
+              }
+            } catch {}
+            if (!coverSaved && STORAGE.idb) {
+              try {
+                const coverKey = (track.id || uuid()) + "-cover";
+                await idbPut(coverKey, blob);
+                track.coverType = "idb";
+                track.coverIdbKey = coverKey;
+                track._coverObjectURL = URL.createObjectURL(blob);
+                coverSaved = true;
+              } catch {
+                STORAGE.idb = false;
+              }
+            }
+            if (!coverSaved) {
+              track.coverType = "data";
+              track.cover = DEFAULT_COVER;
+            }
+            changed = true;
+          } catch {}
+        }
+
+        track._tagsHydrated = true;
+        if (changed && !silent) {
+          saveMeta(playlistMeta);
+          renderTrackList();
+          await updateCoverUI(track);
+        }
+        return changed;
+      }
+      async function hydrateAllUrlTracks() {
+        let any = false;
+        for (const t of playlistMeta.tracks) {
+          if (t.srcType === "url" && !t._tagsHydrated) {
+            const changed = await hydrateUrlTrack(t, true);
+            any = any || changed;
+          }
+        }
+        if (any) saveMeta(playlistMeta);
+      }
+
+      /* ========= LISTA / BETÖLTÉS ========= */
+      let suppressClickUntil = 0;
+
+      function renderTrackList() {
+        trackList.innerHTML = "";
+        playlistMeta.tracks.forEach((t, i) => {
+          const el = document.createElement("div");
+          el.className = "track-item";
+          el.dataset.index = i;
+          el.dataset.id = t.id;
+
+          const img = document.createElement("img");
+          img.className = "thumb";
+          img.alt = "";
+          img.src = DEFAULT_COVER;
+          img.draggable = false;
+          img.onerror = () => (img.src = DEFAULT_COVER);
+          resolveTrackCover(t).then((url) => (img.src = url || DEFAULT_COVER));
+
+          const metaDiv = document.createElement("div");
+          metaDiv.className = "meta";
+          const ephemeral = t.srcType === "temp";
+          metaDiv.innerHTML = `
+            <div class="t">${t.title || "Ismeretlen cím"}</div>
+            <div class="a">${t.artist || ""} ${
+            ephemeral
+              ? '<span class="badge" style="margin-left:6px;background:rgba(255,200,0,.15);border-color:rgba(255,200,0,.35);color:#ffd666;">nem tartós</span>'
+              : ""
+          }</div>`;
+
+          const actions = document.createElement("div");
+          actions.className = "track-actions";
+          const delBtn = document.createElement("button");
+          delBtn.className = "btn-icon";
+          delBtn.title = "Törlés";
+          delBtn.setAttribute("aria-label", "Törlés");
+          delBtn.innerHTML = `<svg viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M135.2 17.7C140.6 7.3 151.1 0 162.7 0H285.3c11.6 0 22.1 7.3 27.5 17.7L328 32H416c17.7 0 32 14.3 32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H120l15.2-14.3zM32 160H416l-21.2 292.7c-1.9 26.2-23.7 47.3-50 47.3H103.2c-26.3 0-48.1-21.1-50-47.3L32 160z"/></svg>`;
+          delBtn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            deleteTrack(i, el);
+          });
+
+          actions.appendChild(delBtn);
+          el.appendChild(img);
+          el.appendChild(metaDiv);
+          el.appendChild(actions);
+
+          el.addEventListener("click", () => {
+            if (Date.now() < suppressClickUntil) return;
+            loadTrack(i).then(() =>
+              audio.play().then(() => setIconPause(true))
+            );
+          });
+
+          trackList.appendChild(el);
+        });
+        highlightActiveItem();
+      }
+      function highlightActiveItem() {
+        [...trackList.children].forEach((x) => x.classList.remove("active"));
+        const a = document.querySelector(
+          `#trackList .track-item[data-index="${currentIndex}"]`
+        );
+        if (a) a.classList.add("active");
+      }
+      async function loadTrack(i) {
+        if (!playlistMeta.tracks.length) {
+          clearPlayerUI();
+          return;
+        }
+        currentIndex =
+          (i + playlistMeta.tracks.length) % playlistMeta.tracks.length;
+        playlistMeta.currentIndex = currentIndex;
+        saveMeta(playlistMeta);
+
+        const tr = playlistMeta.tracks[currentIndex];
+        await hydrateUrlTrack(tr, true);
+
+        titleEl.textContent = tr.title || "Ismeretlen cím";
+        artistEl.textContent = tr.artist || "";
+        extraEl.textContent = `Sorszám: ${currentIndex + 1} / ${
+          playlistMeta.tracks.length
+        }`;
+
+        await updateCoverUI(tr);
+
+        const src = await resolveTrackSrc(tr);
+        if (src) {
+          audio.src = src;
+          setIconPause(false);
+          audio.load();
+        }
+
+        fetchAndRenderInfoFor(tr);
+        highlightActiveItem();
+      }
+      function clearPlayerUI() {
+        audio.pause();
+        audio.src = "";
+        titleEl.textContent = "Nincs szám";
+        artistEl.textContent = "";
+        extraEl.textContent = "";
+        coverEl.src = DEFAULT_COVER;
+        playedEl.style.width = "0%";
+        knobEl.style.left = "0%";
+        currentTimeEl.textContent = "0:00";
+        durationEl.textContent = "0:00";
+        setIconPause(false);
+        clearInfo("");
+        clearArtist("");
+      }
+
+      /* ========= PROGRESS ========= */
+      function updateProgressUI() {
+        if (!isFinite(audio.duration) || audio.duration <= 0) {
+          playedEl.style.width = "0%";
+          knobEl.style.left = "0%";
+          currentTimeEl.textContent = "0:00";
+          durationEl.textContent = "0:00";
+          return;
+        }
+        const pct = (audio.currentTime / audio.duration) * 100;
+        playedEl.style.width = pct + "%";
+        knobEl.style.left = pct + "%";
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+        durationEl.textContent = formatTime(audio.duration);
+      }
+      function updateBufferUI() {
+        if (!isFinite(audio.duration) || audio.duration <= 0) {
+          bufferEl.style.width = "0%";
+          return;
+        }
+        try {
+          const len = audio.buffered.length;
+          if (len) {
+            const end = audio.buffered.end(len - 1);
+            const pct = Math.min(
+              100,
+              Math.max(0, (end / audio.duration) * 100)
+            );
+            bufferEl.style.width = pct + "%";
+          }
+        } catch {
+          bufferEl.style.width = "0%";
+        }
+      }
+
+      // Scrubbing
+      let scrubbing = false;
+      function clientXToRatio(clientX) {
+        const rect = progressLine.getBoundingClientRect();
+        let r = (clientX - rect.left) / rect.width;
+        return Math.min(1, Math.max(0, r));
+      }
+      function seekToClientX(clientX) {
+        if (!isFinite(audio.duration) || audio.duration <= 0) return;
+        const ratio = clientXToRatio(clientX);
+        audio.currentTime = ratio * audio.duration;
+        updateProgressUI();
+      }
+      progressLine.addEventListener("pointerdown", (e) => {
+        scrubbing = true;
+        progressLine.classList.add("scrubbing");
+        progressLine.setPointerCapture(e.pointerId);
+        seekToClientX(e.clientX);
+      });
+      progressLine.addEventListener("pointermove", (e) => {
+        if (scrubbing) seekToClientX(e.clientX);
+      });
+      progressLine.addEventListener("pointerup", (e) => {
+        scrubbing = false;
+        progressLine.classList.remove("scrubbing");
+        progressLine.releasePointerCapture(e.pointerId);
+      });
+      progressLine.addEventListener("keydown", (e) => {
+        if (!isFinite(audio.duration)) return;
+        if (e.key === "ArrowLeft") {
+          audio.currentTime = Math.max(0, audio.currentTime - 5);
+          updateProgressUI();
+        } else if (e.key === "ArrowRight") {
+          audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+          updateProgressUI();
+        }
+      });
+
+      audio.addEventListener("loadedmetadata", () => {
+        updateProgressUI();
+        updateBufferUI();
+      });
+      audio.addEventListener("timeupdate", updateProgressUI);
+      audio.addEventListener("progress", updateBufferUI);
+      audio.addEventListener("ended", () => nextTrack());
+      audio.addEventListener("play", () => {
+        setIconPause(true);
+        updateCoverUI();
+      });
+      audio.addEventListener("pause", () => setIconPause(false));
+      audio.addEventListener("loadeddata", () => {
+        updateCoverUI();
+      });
+
+      function prevTrack() {
+        loadTrack(currentIndex - 1).then(() =>
+          audio.play().then(() => setIconPause(true))
+        );
+      }
+      function nextTrack() {
+        loadTrack(currentIndex + 1).then(() =>
+          audio.play().then(() => setIconPause(true))
+        );
+      }
+      function togglePlay() {
+        if (audio.paused) {
+          audio
+            .play()
+            .then(() => setIconPause(true))
+            .catch(() => {});
+        } else {
+          audio.pause();
+          setIconPause(false);
+        }
+      }
+      function toggleMute() {
+        audio.muted = !audio.muted;
+        setVolumeIcon(audio.muted);
+      }
+
+      /* ========= HOZZÁADÁS ========= */
+      newBtn?.addEventListener("click", () => filePicker?.click());
+      filePicker?.addEventListener("change", async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        await addFilesWithCovers(files);
+        e.target.value = "";
+      });
+
+      function fileToDataURL(file) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = reject;
+          r.readAsDataURL(file);
+        });
+      }
+      function blobToDataURL(blob) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = reject;
+          r.readAsDataURL(blob);
+        });
+      }
+      function readTags(file) {
+        return new Promise((resolve) => {
+          if (!window.jsmediatags) return resolve(null);
+          try {
+            new window.jsmediatags.Reader(file).read({
+              onSuccess: (tag) => resolve(tag),
+              onError: () => resolve(null),
+            });
+          } catch {
+            resolve(null);
+          }
+        });
+      }
+      function stemKey(name) {
+        return name
+          .toLowerCase()
+          .replace(/\.[^/.]+$/, "")
+          .replace(/[\s._-]+/g, " ")
+          .replace(/\b(cover|folder|front|artwork|album|index)\b/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      async function addFilesWithCovers(files) {
+        const AUDIO_TYPES = /^audio\//i,
+          IMAGE_TYPES = /^image\//i;
+        const audios = files.filter((f) => AUDIO_TYPES.test(f.type));
+        const images = files.filter((f) => IMAGE_TYPES.test(f.type));
+
+        const imageMap = new Map();
+        for (const img of images) {
+          const key = stemKey(img.name);
+          if (!imageMap.has(key)) imageMap.set(key, []);
+          imageMap.get(key).push(img);
+        }
+
+        const addedIdx = [];
+        for (const f of audios) {
+          const id = uuid();
+          const baseKey = stemKey(f.name);
+          const track = {
+            id,
+            title: f.name.replace(/\.[^/.]+$/, ""),
+            artist: "Helyi fájl",
+            srcType: "temp",
+            coverType: "data",
+            cover: DEFAULT_COVER,
+          };
+
+          if (STORAGE.idb) {
+            try {
+              await idbPut(id, f);
+              track.srcType = "idb";
+              track.idbKey = id;
+            } catch (e) {
+              console.warn("IDB mentés nem sikerült:", e);
+              STORAGE.idb = false;
+              track.srcType = "temp";
+              track._objectURL = URL.createObjectURL(f);
+            }
+          } else {
+            track.srcType = "temp";
+            track._objectURL = URL.createObjectURL(f);
+          }
+
+          const tags = await readTags(f);
+          const pic = tags?.tags?.picture;
+          if (tags?.tags?.title) track.title = tags.tags.title;
+          if (tags?.tags?.artist) track.artist = tags.tags.artist;
+
+          if (pic && pic.data && pic.data.length) {
+            try {
+              const bytes = new Uint8Array(pic.data);
+              const detected = sniffImageMime(bytes);
+              const mime = detected || "image/jpeg";
+              const blob = new Blob([bytes], { type: mime });
+
+              let coverSaved = false;
+              try {
+                const cu = await blobToDataURL(blob);
+                if (cu && cu.length < COVER_DATAURL_LIMIT) {
+                  track.coverType = "data";
+                  track.cover = cu;
+                  coverSaved = true;
+                }
+              } catch {}
+              if (!coverSaved && STORAGE.idb) {
+                try {
+                  const coverKey = id + "-cover";
+                  track.coverType = "idb";
+                  track.coverIdbKey = coverKey;
+                  await idbPut(coverKey, blob);
+                  track._coverObjectURL = URL.createObjectURL(blob);
+                  coverSaved = true;
+                } catch (e) {
+                  console.warn("IDB borító mentés nem sikerült:", e);
+                  STORAGE.idb = false;
+                }
+              }
+              if (!coverSaved) {
+                track.coverType = "data";
+                track.cover = DEFAULT_COVER;
+              }
+            } catch {}
+          }
+
+          if (
+            (track.coverType === "data" || track.coverType === "url") &&
+            imageMap.has(baseKey)
+          ) {
+            const coverFile = imageMap.get(baseKey)[0];
+            let coverSaved = false;
+            try {
+              const coverDataUrl = await fileToDataURL(coverFile);
+              if (coverDataUrl && coverDataUrl.length < COVER_DATAURL_LIMIT) {
+                track.coverType = "data";
+                track.cover = coverDataUrl;
+                coverSaved = true;
+              }
+            } catch {}
+            if (!coverSaved && STORAGE.idb) {
+              try {
+                const coverKey = id + "-cover";
+                track.coverType = "idb";
+                track.coverIdbKey = coverKey;
+                await idbPut(coverKey, coverFile);
+                track._coverObjectURL = URL.createObjectURL(coverFile);
+                coverSaved = true;
+              } catch (e) {
+                console.warn("IDB borító mentés nem sikerült (külső kép):", e);
+                STORAGE.idb = false;
+              }
+            }
+            if (!coverSaved) {
+              track.coverType = "data";
+              track.cover = DEFAULT_COVER;
+            }
+          }
+
+          playlistMeta.tracks.push(track);
+          addedIdx.push(playlistMeta.tracks.length - 1);
+        }
+
+        saveMeta(playlistMeta);
+        renderTrackList();
+        updateCoverUI();
+
+        if (addedIdx.length) {
+          const firstNew = addedIdx[0];
+          await loadTrack(firstNew);
+          audio.play().then(() => setIconPause(true));
+        }
+      }
+
+      /* ========= INFO-KÁRTYA: iTunes + fallback (MB) ========= */
+      function jsonp(url, timeoutMs = 8000) {
+        return new Promise((resolve, reject) => {
+          const cb = "__jp_" + Math.random().toString(36).slice(2);
+          const s = document.createElement("script");
+          const clean = (err) => {
+            delete window[cb];
+            s.remove();
+            if (t) clearTimeout(t);
+            err && reject(err);
+          };
+          const t = setTimeout(
+            () => clean(new Error("jsonp timeout")),
+            timeoutMs
+          );
+          window[cb] = (data) => {
+            clean();
+            resolve(data);
+          };
+          s.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
+          s.onerror = () => clean(new Error("jsonp error"));
+          document.body.appendChild(s);
+        });
+      }
+      const setInfoLoading = () =>
+        infoDeck &&
+        (infoDeck.innerHTML = `<div class="info-card"><div class="info-row"><div>Keresés…</div></div></div>`);
+      function clearInfo(msg = "") {
+        if (!infoDeck) return;
+        infoDeck.innerHTML = msg
+          ? `<div class="info-card"><div class="info-row"><div>${msg}</div></div></div>`
+          : "";
+      }
+      function renderInfo(info) {
+        if (!infoDeck) return;
+        const img = info.artwork
+          ? `<img class="info-art" src="${info.artwork}" alt="">`
+          : "";
+        const meta = `
+          <div class="info-text">
+            <div class="info-title">${info.trackName || ""}</div>
+            <div class="info-sub">${[info.artistName, info.album]
+              .filter(Boolean)
+              .join(" • ")}</div>
+            <div class="info-sub">${[info.genre, info.year]
+              .filter(Boolean)
+              .join(" • ")}</div>
+            ${
+              info.link
+                ? `<a class="info-link" href="${info.link}" target="_blank" rel="noopener">${info.source} adatlap</a>`
+                : ""
+            }
+          </div>`;
+        infoDeck.innerHTML = `<div class="info-card"><div class="info-row">${img}${meta}</div></div>`;
+      }
+      async function fetchItunesInfo(title, artist) {
+        const term = encodeURIComponent(`${title} ${artist || ""}`.trim());
+        const url = `https://itunes.apple.com/search?term=${term}&entity=song&limit=1&country=hu&lang=hu_hu`;
+        const data = await jsonp(url);
+        const r = data?.results?.[0];
+        if (!r) return null;
+        return {
+          source: "iTunes",
+          trackName: r.trackName,
+          artistName: r.artistName,
+          album: r.collectionName,
+          year: r.releaseDate ? new Date(r.releaseDate).getFullYear() : "",
+          genre: r.primaryGenreName,
+          artwork: r.artworkUrl100
+            ? r.artworkUrl100.replace("100x100bb", "500x500bb")
+            : "",
+          link: r.trackViewUrl,
+        };
+      }
+      async function fetchMBInfo(title, artist) {
+        const q = `recording:"${title}" AND artist:"${artist || ""}"`;
+        const url = `https://musicbrainz.org/ws/2/recording?fmt=json&limit=1&inc=releases+release-groups+artists&query=${encodeURIComponent(
+          q
+        )}`;
+        const res = await fetch(url, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        const rec = json.recordings?.[0];
+        if (!rec) return null;
+        const rel = rec.releases?.[0];
+        const rgid =
+          rec["release-group"]?.id ||
+          rel?.["release-group"]?.id ||
+          rel?.release_group?.id;
+        const cover = rgid
+          ? `https://coverartarchive.org/release-group/${rgid}/front-500`
+          : "";
+        const firstArtist = rec["artist-credit"]?.[0]?.artist;
+        return {
+          source: "MusicBrainz",
+          trackName: rec.title,
+          artistName: firstArtist?.name || artist || "",
+          album: rel?.title || "",
+          year: (rel?.date || "").slice(0, 4),
+          genre: "",
+          artwork: cover,
+          link: rel?.id ? `https://musicbrainz.org/release/${rel.id}` : "",
+        };
+      }
+
+      /* ========= Keresési segédek ========= */
+      function stripDecorations(s) {
+        if (!s) return "";
+        s = s.replace(/\[[^\]]*\]|\([^)]+\)/g, (m) => {
+          const t = m.slice(1, -1).toLowerCase();
+          return /(official|video|lyric|lyrics|audio|mv|music\s*video|hd|4k|visualizer|remaster|remastered|live|clip|trailer|teaser|prod|dir|vevo|with\s*lyrics)/.test(
+            t
+          )
+            ? ""
+            : m;
+        });
+        return s
+          .replace(/[“”"']/g, "")
+          .replace(/[_•]+/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
+      function splitArtistTitle(s) {
+        const sep = /\s[-–—:|]\s/;
+        if (sep.test(s)) {
+          const [left, ...rest] = s.split(sep);
+          return [left.trim(), rest.join(" - ").trim()];
+        }
+        return [null, s.trim()];
+      }
+      function looksLikeUploader(s) {
+        return /(?:vevo|official|lyrics?|topic|channel|records?|music|audio|videos?)/i.test(
+          s || ""
+        );
+      }
+      function cleanSearchMeta(track) {
+        let t = stripDecorations(track.title || "");
+        let a = stripDecorations(track.artist || "");
+        const [left, right] = splitArtistTitle(t);
+        if (
+          !a ||
+          /Helyi fájl|Beépített minta/i.test(a) ||
+          looksLikeUploader(a)
+        ) {
+          if (left) {
+            a = left;
+            t = right;
+          }
+        }
+        t = t.replace(/\s*(?:ft\.?|feat\.?|featuring)\s+.+$/i, "").trim();
+        a = a.replace(/\s*(?:ft\.?|feat\.?|featuring)\s+.+$/i, "").trim();
+        return { t, a, altLeft: left, altRight: right };
+      }
+
+      /* ========= WIKIPÉDIA: okos keresés ========= */
+      const rmDiacritics = (s) =>
+        (s || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+      function isMusicDescription(d = "") {
+        return /(?:énekes|zenész|zenekar|együttes|rapper|gitáros|dobos|producer|dj|zeneszerző|énekesnő|band|group|singer|musician|rapper|guitarist|drummer|producer|composer|dj)/i.test(
+          d
+        );
+      }
+      async function searchWikipediaCandidates(name) {
+        const langs = ["hu", "en"];
+        const out = [];
+        for (const lang of langs) {
+          try {
+            const url = `https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(
+              name
+            )}&limit=5&origin=*`;
+            const r = await fetch(url, {
+              headers: { Accept: "application/json" },
+            });
+            if (!r.ok) continue;
+            const j = await r.json();
+            const pages = j?.pages || [];
+            for (const p of pages)
+              out.push({
+                lang,
+                title: p.title,
+                description: p.description || "",
+                thumb: p.thumbnail?.url || "",
+              });
+          } catch {}
+        }
+        return out;
+      }
+      async function fetchWikipediaSummaryByTitle(lang, title) {
+        try {
+          const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+            title
+          )}?origin=*`;
+          const r = await fetch(url, {
+            headers: { Accept: "application/json" },
+          });
+          if (!r.ok) return null;
+          const j = await r.json();
+          if (j.type === "disambiguation")
+            return { disambig: true, lang, title };
+          return {
+            lang,
+            name: j.title,
+            bio: j.extract,
+            url:
+              j?.content_urls?.desktop?.page ||
+              `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title)}`,
+            thumb: j?.thumbnail?.source || "",
+            description: j?.description || "",
+          };
+        } catch {
+          return null;
+        }
+      }
+      function scoreCandidate(inputName, cand) {
+        const a = rmDiacritics(inputName),
+          b = rmDiacritics(cand.title);
+        let s = 0;
+        if (a === b) s += 6;
+        if (b.includes(a) || a.includes(b)) s += 3;
+        if (isMusicDescription(cand.description)) s += 5;
+        if (cand.thumb) s += 1;
+        return s;
+      }
+      async function fetchWikipediaSmart(name) {
+        const cands = await searchWikipediaCandidates(name);
+        if (!cands.length) return null;
+        cands.sort((x, y) => scoreCandidate(name, y) - scoreCandidate(name, x));
+        for (const c of cands.slice(0, 6)) {
+          const sum = await fetchWikipediaSummaryByTitle(c.lang, c.title);
+          if (!sum) continue;
+          if (sum.disambig) continue;
+          if (!isMusicDescription(sum.description || c.description)) {
+            const exact =
+              rmDiacritics(name) === rmDiacritics(sum.name || c.title);
+            if (!exact) continue;
+          }
+          return {
+            lang: sum.lang,
+            name: sum.name,
+            bio: sum.bio,
+            url: sum.url,
+            thumb: sum.thumb || c.thumb || "",
+          };
+        }
+        return null;
+      }
+      function setArtistLoading() {
+        if (!artistDeck) return;
+        artistDeck.innerHTML = `<div class="info-card"><div class="info-row"><div>Keresés előadóra…</div></div></div>`;
+      }
+      function clearArtist(msg = "") {
+        if (!artistDeck) return;
+        artistDeck.innerHTML = msg
+          ? `<div class="info-card"><div class="info-row"><div>${msg}</div></div></div>`
+          : "";
+      }
+      function renderArtistCard(a) {
+        if (!artistDeck) return;
+        const img = a.thumb
+          ? `<img class="info-art" src="${a.thumb}" alt="">`
+          : "";
+        const meta = `
+          <div>
+            <div class="info-title">${a.name || ""}</div>
+            ${a.metaLine ? `<div class="info-sub">${a.metaLine}</div>` : ""}
+            ${a.bio ? `<div class="artist-bio">${a.bio}</div>` : ""}
+            ${
+              a.url
+                ? `<a class="info-link" href="${a.url}" target="_blank" rel="noopener">Wikipedia (${a.lang})</a>`
+                : ""
+            }
+          </div>`;
+        artistDeck.innerHTML = `<div class="info-card"><div class="info-row">${img}${meta}</div></div>`;
+      }
+      async function fetchAndRenderArtistFromWikipedia(artistName) {
+        const name = (artistName || "")
+          .replace(/\s*(?:ft\.?|feat\.?|featuring)\s+.+$/i, "")
+          .trim();
+        if (!name) {
+          clearArtist("");
+          return;
+        }
+        setArtistLoading();
+        const w = await fetchWikipediaSmart(name);
+        if (!w) {
+          clearArtist("Nincs előadói információ.");
+          return;
+        }
+        renderArtistCard({
+          name: w.name,
+          bio: w.bio,
+          url: w.url,
+          thumb: w.thumb,
+          lang: w.lang,
+          metaLine: "",
+        });
+      }
+
+      /* ========= TRACK + ELŐADÓ INFÓ ========= */
+      async function fetchAndRenderInfoFor(track) {
+        const { t, a, altLeft, altRight } = cleanSearchMeta(track);
+        const pairs = [];
+        const add = (x, y) => {
+          if (!x && !y) return;
+          const k = (x || "") + "||" + (y || "");
+          if (!pairs.some((p) => (p[0] || "") + "||" + (p[1] || "") === k))
+            pairs.push([x || "", y || ""]);
+        };
+        add(t, a);
+        add(t, "");
+        if (altLeft && altRight) {
+          add(altLeft, altRight);
+          add(altRight, altLeft);
+        }
+        if (a && t) add(a, t);
+
+        if (!pairs.length) {
+          clearInfo("");
+          clearArtist(track.artist || "");
+          return;
+        }
+        setInfoLoading();
+
+        let info = null;
+        for (const [title, artist] of pairs) {
+          try {
+            info = await fetchItunesInfo(title, artist);
+            if (!info) info = await fetchItunesInfo(title, "");
+            if (!info) info = await fetchMBInfo(title, artist);
+            if (info) break;
+          } catch {}
+        }
+        if (info) {
+          renderInfo(info);
+          fetchAndRenderArtistFromWikipedia(info.artistName || track.artist);
+        } else {
+          clearInfo("Nincs információ ehhez a számhoz.");
+          fetchAndRenderArtistFromWikipedia(track.artist);
+        }
+      }
+
+      /* ========= Blur-háttér vándorlás + parallax ========= */
+      function rand(min, max) {
+        return min + Math.random() * (max - min);
+      }
+      function roamBlob(el) {
+        const w = window.innerWidth,
+          h = window.innerHeight;
+        const spanX = w * 1.6,
+          spanY = h * 1.6;
+        const tx = rand(-spanX / 2, spanX / 2);
+        const ty = rand(-spanY / 2, spanY / 2);
+        const sc = rand(0.9, 1.15);
+        const dur = rand(18, 42);
+
+        el.style.setProperty("--tx", tx + "px");
+        el.style.setProperty("--ty", ty + "px");
+        el.style.setProperty("--sc", sc.toFixed(3));
+        el.style.setProperty("--dur", dur + "s");
+        el.style.opacity = rand(0.48, 0.75).toFixed(2);
+
+        clearTimeout(el._wanderTimer);
+        el._wanderTimer = setTimeout(
+          () => roamBlob(el),
+          dur * 1000 + rand(400, 1400)
+        );
+      }
+      function startBlobWander() {
+        const blobs = document.querySelectorAll(".bg-blobs .blob");
+        blobs.forEach((b, i) => {
+          setTimeout(() => roamBlob(b), i * 600);
+        });
+        window.addEventListener("resize", () => {
+          blobs.forEach((b) => roamBlob(b));
+        });
+      }
+      (function parallaxInit() {
+        const bg = document.querySelector(".bg-blobs");
+        let rafId = null,
+          tx = 0,
+          ty = 0,
+          targetTx = 0,
+          targetTy = 0;
+        const lerp = (a, b, t) => a + (b - a) * t;
+        function onPointerMove(e) {
+          const w = window.innerWidth,
+            h = window.innerHeight;
+          const x = (e.clientX / w - 0.5) * 2,
+            y = (e.clientY / h - 0.5) * 2;
+          targetTx = x * 12;
+          targetTy = y * 12;
+          if (!rafId) tick();
+        }
+        function tick() {
+          tx = lerp(tx, targetTx, 0.08);
+          ty = lerp(ty, targetTy, 0.08);
+          bg && (bg.style.transform = `translate3d(${tx}px, ${ty}px, 0)`);
+          if (Math.abs(tx - targetTx) > 0.1 || Math.abs(ty - targetTy) > 0.1) {
+            rafId = requestAnimationFrame(tick);
+          } else {
+            rafId = null;
+          }
+        }
+        window.addEventListener("pointermove", onPointerMove, {
+          passive: true,
+        });
+      })();
+
+      /* ========= MIGRÁCIÓ ========= */
+      async function migrateStorage(meta) {
+        if (!meta || !Array.isArray(meta.tracks)) return;
+        let changed = false;
+
+        for (const t of meta.tracks) {
+          if (t.srcType === "data" && t.src && STORAGE.idb) {
+            try {
+              const blob = dataURLtoBlob(t.src);
+              const key = t.id || uuid();
+              await idbPut(key, blob);
+              t.srcType = "idb";
+              t.idbKey = key;
+              delete t.src;
+              changed = true;
+            } catch (e) {
+              console.warn("Audio migráció sikertelen:", e);
+            }
+          }
+          if (
+            t.coverType === "data" &&
+            t.cover &&
+            t.cover.length > COVER_DATAURL_LIMIT &&
+            STORAGE.idb
+          ) {
+            try {
+              const cblob = dataURLtoBlob(t.cover);
+              const ckey = (t.id || uuid()) + "-cover";
+              await idbPut(ckey, cblob);
+              t.coverType = "idb";
+              t.coverIdbKey = ckey;
+              delete t.cover;
+              changed = true;
+            } catch (e) {
+              console.warn("Cover migráció sikertelen:", e);
+            }
+          }
+        }
+        if (changed) saveMeta(meta);
+      }
+
+      /* ========= DRAG & DROP RENDEZÉS ========= */
+      const dragState = {
+        dragging: false,
+        startX: 0,
+        startY: 0,
+        index: -1,
+        id: null,
+        ghost: null,
+        placeholder: null,
+        itemEl: null,
+        pointerId: null,
+        itemHeight: 0,
+        startLeft: 0,
+      };
+      trackList.addEventListener("dragstart", (e) => e.preventDefault());
+      function arrayMove(arr, from, to) {
+        if (from === to) return arr;
+        const item = arr.splice(from, 1)[0];
+        arr.splice(to, 0, item);
+        return arr;
+      }
+
+      function startDrag(itemEl, pointerId, startX, startY) {
+        const rect = itemEl.getBoundingClientRect();
+        dragState.dragging = true;
+        dragState.itemEl = itemEl;
+        dragState.pointerId = pointerId;
+        dragState.index = Number(itemEl.dataset.index);
+        dragState.id = itemEl.dataset.id;
+        dragState.startX = startX;
+        dragState.startY = startY;
+        dragState.itemHeight = rect.height;
+        dragState.startLeft = rect.left;
+
+        const ph = document.createElement("div");
+        ph.className = "track-placeholder";
+        ph.style.height = rect.height + "px";
+        itemEl.parentElement.insertBefore(ph, itemEl.nextSibling);
+        dragState.placeholder = ph;
+
+        const ghost = itemEl.cloneNode(true);
+        ghost.classList.add("drag-ghost");
+        ghost.style.width = rect.width + "px";
+        ghost.style.height = rect.height + "px";
+        ghost.style.left = rect.left + "px";
+        ghost.style.top = rect.top + "px";
+        document.body.appendChild(ghost);
+        dragState.ghost = ghost;
+
+        itemEl.classList.add("dragging");
+        itemEl.style.opacity = "0.0";
+        document.body.classList.add("reordering");
+      }
+      function moveGhost(clientY) {
+        if (!dragState.dragging || !dragState.ghost) return;
+        const g = dragState.ghost;
+        const x = dragState.startLeft;
+        const y = clientY - 0.5 * dragState.itemHeight;
+        g.style.transform = `translate3d(0,0,0)`;
+        g.style.left = x + "px";
+        g.style.top = y + "px";
+      }
+      function autoScrollIfNeeded(clientY) {
+        const cont = sidebarScroll;
+        const rect = cont.getBoundingClientRect();
+        const margin = 36;
+        const speed = 14;
+        if (clientY < rect.top + margin) cont.scrollTop -= speed;
+        else if (clientY > rect.bottom - margin) cont.scrollTop += speed;
+      }
+      function getTrackItems() {
+        return Array.from(trackList.querySelectorAll(".track-item"));
+      }
+      function indexFromY(y) {
+        const items = getTrackItems();
+        if (!items.length) return 0;
+        for (let i = 0; i < items.length; i++) {
+          const r = items[i].getBoundingClientRect();
+          const center = r.top + r.height / 2;
+          if (y < center) return i;
+        }
+        return items.length;
+      }
+      function updatePlaceholderPosition(clientY) {
+        if (!dragState.placeholder) return;
+        const items = getTrackItems();
+        const targetIndex = indexFromY(clientY);
+        if (targetIndex >= items.length) {
+          trackList.appendChild(dragState.placeholder);
+        } else {
+          trackList.insertBefore(dragState.placeholder, items[targetIndex]);
+        }
+      }
+      function finishDrag() {
+        if (!dragState.dragging) return;
+        const { placeholder, itemEl, ghost, index: fromIdx } = dragState;
+
+        const items = getTrackItems();
+        let toIdx = items.findIndex(
+          (el) => el === placeholder?.nextElementSibling
+        );
+        if (toIdx === -1) toIdx = items.length;
+
+        itemEl.classList.remove("dragging");
+        itemEl.style.opacity = "";
+        ghost?.remove();
+        placeholder?.remove();
+        document.body.classList.remove("reordering");
+
+        dragState.dragging = false;
+        dragState.ghost = null;
+        dragState.placeholder = null;
+        dragState.itemEl = null;
+        dragState.pointerId = null;
+
+        if (toIdx < 0 || toIdx === fromIdx) {
+          suppressClickUntil = Date.now() + 300;
+          return;
+        }
+
+        const oldCurrent = currentIndex;
+        arrayMove(playlistMeta.tracks, fromIdx, toIdx);
+
+        if (oldCurrent === fromIdx) currentIndex = toIdx;
+        else if (fromIdx < oldCurrent && toIdx >= oldCurrent)
+          currentIndex = oldCurrent - 1;
+        else if (fromIdx > oldCurrent && toIdx <= oldCurrent)
+          currentIndex = oldCurrent + 1;
+        else currentIndex = oldCurrent;
+
+        playlistMeta.currentIndex = currentIndex;
+        saveMeta(playlistMeta);
+        renderTrackList();
+
+        extraEl.textContent = `Sorszám: ${currentIndex + 1} / ${
+          playlistMeta.tracks.length
+        }`;
+        highlightActiveItem();
+
+        suppressClickUntil = Date.now() + 300;
+      }
+
+      // Hosszú-nyomásos drag mobilon
+      let pressTimer = null;
+      let pressedEl = null;
+      let pressStartX = 0;
+      let pressStartY = 0;
+      let pressArmed = false;
+      let pressCancelled = false;
+      let activePointerId = null;
+      const DRAG_THRESHOLD_TOUCH = 10;
+      const DRAG_THRESHOLD_MOUSE = 6;
+      const LONG_PRESS_MS = 320;
+
+      trackList.addEventListener("pointerdown", (e) => {
+        const item = e.target.closest(".track-item");
+        if (!item) return;
+        if (e.button !== 0 && e.pointerType !== "touch") return;
+        if (e.target.closest(".btn-icon")) return;
+
+        pressedEl = item;
+        pressStartX = e.clientX;
+        pressStartY = e.clientY;
+        activePointerId = e.pointerId;
+        pressArmed = e.pointerType !== "touch";
+        pressCancelled = false;
+
+        if (e.pointerType === "touch") {
+          clearTimeout(pressTimer);
+          pressTimer = setTimeout(() => {
+            if (!pressCancelled && pressedEl) {
+              pressArmed = true;
+            }
+          }, LONG_PRESS_MS);
+        }
+
+        const onMove = (ev) => {
+          if (!pressedEl) return;
+          const thresh =
+            ev.pointerType === "touch"
+              ? DRAG_THRESHOLD_TOUCH
+              : DRAG_THRESHOLD_MOUSE;
+          const dx = Math.abs(ev.clientX - pressStartX);
+          const dy = Math.abs(ev.clientY - pressStartY);
+
+          if (ev.pointerType === "touch" && !pressArmed) {
+            if (dx > thresh || dy > thresh) {
+              pressCancelled = true;
+              clearTimeout(pressTimer);
+              teardown();
+              return;
+            }
+            return;
+          }
+
+          if (
+            !dragState.dragging &&
+            pressArmed &&
+            (dx > thresh || dy > thresh)
+          ) {
+            startDrag(pressedEl, ev.pointerId, pressStartX, pressStartY);
+          }
+          if (dragState.dragging) {
+            pressedEl.classList.add("dragging");
+            moveGhost(ev.clientY);
+            updatePlaceholderPosition(ev.clientY);
+            autoScrollIfNeeded(ev.clientY);
+            ev.preventDefault();
+          }
+        };
+
+        const onUp = () => {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+          pressArmed = false;
+          pressCancelled = false;
+          if (dragState.dragging) finishDrag();
+          teardown();
+        };
+
+        function teardown() {
+          window.removeEventListener("pointermove", onMove, true);
+          window.removeEventListener("pointerup", onUp, true);
+          window.removeEventListener("pointercancel", onUp, true);
+          pressedEl = null;
+          activePointerId = null;
+        }
+
+        window.addEventListener("pointermove", onMove, {
+          passive: false,
+          capture: true,
+        });
+        window.addEventListener("pointerup", onUp, {
+          passive: true,
+          capture: true,
+        });
+        window.addEventListener("pointercancel", onUp, {
+          passive: true,
+          capture: true,
+        });
+      });
+
+      /* ========= INIT ========= */
+      (async function init() {
+        await detectStorageSupport();
+        playlistMeta = loadMeta() || seedDefaultMeta();
+        currentIndex = playlistMeta.currentIndex || 0;
+
+        await migrateStorage(playlistMeta);
+        await hydrateAllUrlTracks();
+
+        playBtn.addEventListener("click", togglePlay);
+        prevBtn.addEventListener("click", prevTrack);
+        nextBtn.addEventListener("click", nextTrack);
+        muteBtn.addEventListener("click", () => toggleMute());
+
+        startBlobWander();
+
+        renderTrackList();
+        if (currentIndex < 0 || currentIndex >= playlistMeta.tracks.length)
+          currentIndex = 0;
+        await loadTrack(currentIndex);
+        setVolumeIcon(false);
+        updateProgressUI();
+        updateBufferUI();
+      })();
+    </script>
+  </body>
 </html>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128" role="img" aria-labelledby="title desc" style="--bg1:#0f172a; --bg2:#1f2937; --ink:#e5e7eb; --accent:#22d3ee">
+  <title id="title">Playlist alkalmazás ikon</title>
+  <desc id="desc">Lekerekített csempe háttéren sorként ábrázolt lejátszási lista és egy lejátszás gomb</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="var(--bg1)"></stop>
+      <stop offset="100%" stop-color="var(--bg2)"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- App-csempe háttér -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bg)"></rect>
+  <!-- finom keret -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="white" opacity="0.08"></rect>
+
+  <!-- Lista (playlist) -->
+  <g fill="none" stroke="var(--ink)" stroke-linecap="round" stroke-width="2.5">
+    <!-- pontok -->
+    <circle cx="18" cy="22" r="2"></circle>
+    <circle cx="18" cy="32" r="2"></circle>
+    <circle cx="18" cy="42" r="2"></circle>
+    <!-- sorok -->
+    <path d="M24 22h14"></path>
+    <path d="M24 32h10"></path>
+    <path d="M24 42h18"></path>
+  </g>
+
+  <!-- Lejátszás gomb (accent) -->
+  <g transform="translate(0,0)">
+    <circle cx="46" cy="30" r="10" fill="var(--accent)" opacity="0.18"></circle>
+    <circle cx="46" cy="30" r="10" fill="none" stroke="var(--accent)" stroke-width="2"></circle>
+    </g></svg>
