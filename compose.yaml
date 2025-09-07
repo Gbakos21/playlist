@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    image: playlist-web:latest
+    ports:
+      - "8080:80"
+    # Ha fejlesztés alatt élő fájltükrözést szeretnél, kapcsold be az alábbit:
+    # volumes:
+    #   - ./:/usr/share/nginx/html:ro
+    restart: unless-stopped
