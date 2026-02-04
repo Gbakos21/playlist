@@ -81,7 +81,8 @@
             transparent 60%
           ),
           linear-gradient(180deg, #13131a 0%, #0f0f14 100%);
-        overscroll-behavior: none;
+        overscroll-behavior: auto;
+        touch-action: pan-y;
       }
 
       .bg-blobs {
@@ -400,10 +401,11 @@
 
       .track-item {
         display: grid;
-        grid-template-columns: 56px 1fr auto;
+        grid-template-columns: 56px minmax(0, 1fr) auto;
         gap: 12px;
         align-items: center;
         padding: 10px;
+        min-height: 86px;
         border-radius: 12px;
         cursor: pointer;
         transition: background 0.2s ease, transform 0.08s ease,
@@ -436,6 +438,24 @@
         border-radius: 10px;
         background: #222;
       }
+      .track-item .meta {
+        min-width: 0;
+      }
+      .track-item .t {
+        font-weight: 600;
+        line-height: 1.2;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .track-item .a {
+        font-size: 0.85rem;
+        color: #aeb1bf;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .track-actions {
         display: flex;
         align-items: center;
@@ -462,6 +482,22 @@
         width: 16px;
         height: 16px;
         fill: #e3e5ea;
+      }
+      .track-item .thumb {
+        touch-action: none;
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.22);
+        border-top-color: rgba(255, 255, 255, 0.9);
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       body.reordering {
@@ -499,6 +535,16 @@
       @media (max-width: 992px) {
         .player {
           grid-template-columns: 1fr;
+        }
+        .sidebar {
+          max-height: none;
+          overflow: visible;
+          overscroll-behavior: auto;
+        }
+      }
+      @media (min-width: 992px) {
+        .track-item .t {
+          -webkit-line-clamp: 3;
         }
       }
       .player .progress {
@@ -1430,9 +1476,13 @@
         });
         const meta = row.querySelector(".meta");
         if (meta) {
+          const displayTitle = cleanDisplayTitle(
+            track.title || "Ismeretlen cím"
+          );
+          const displayArtist = cleanDisplayArtist(track.artist || "");
           meta.innerHTML = `
-            <div class="t">${track.title || "Ismeretlen cím"}</div>
-            <div class="a">${track.artist || ""}${
+            <div class="t">${displayTitle}</div>
+            <div class="a">${displayArtist}${
             track.srcType === "temp"
               ? '<span class="badge" style="margin-left:6px;background:rgba(255,200,0,.15);border-color:rgba(255,200,0,.35);color:#ffd666;">nem tartós</span>'
               : ""
@@ -1507,9 +1557,11 @@
           const metaDiv = document.createElement("div");
           metaDiv.className = "meta";
           const ephemeral = t.srcType === "temp";
+          const displayTitle = cleanDisplayTitle(t.title || "Ismeretlen cím");
+          const displayArtist = cleanDisplayArtist(t.artist || "");
           metaDiv.innerHTML = `
-            <div class="t">${t.title || "Ismeretlen cím"}</div>
-            <div class="a">${t.artist || ""} ${
+            <div class="t">${displayTitle}</div>
+            <div class="a">${displayArtist} ${
             ephemeral
               ? '<span class="badge" style="margin-left:6px;background:rgba(255,200,0,.15);border-color:rgba(255,200,0,.35);color:#ffd666;">nem tartós</span>'
               : ""
@@ -1766,6 +1818,29 @@
           .replace(/\s+/g, " ")
           .trim();
       }
+      function cleanDisplayTitle(title) {
+        if (!title) return "";
+        let t = title;
+        t = t.replace(
+          /\s*[\[(].*?(official|video|lyrics?|audio|mv|visualizer|remaster(?:ed)?|live|clip|teaser|prod\.?|dir\.?|vevo|topic).*?[\])]/gi,
+          ""
+        );
+        t = t.replace(
+          /\s*-\s*(official|video|lyrics?|audio|mv|visualizer|remaster(?:ed)?|live|clip|teaser|prod\.?|dir\.?|vevo|topic)\b.*$/i,
+          ""
+        );
+        t = t.replace(/\s{2,}/g, " ").trim();
+        return t;
+      }
+      function cleanDisplayArtist(artist) {
+        if (!artist) return "";
+        let a = artist;
+        a = a.replace(/\s*-\s*topic$/i, "");
+        a = a.replace(/\bvevo\b/gi, "");
+        a = a.replace(/\bofficial\b/gi, "");
+        a = a.replace(/\s{2,}/g, " ").trim();
+        return a;
+      }
 
       async function addFilesWithCovers(files) {
         const AUDIO_TYPES = /^audio\//i,
@@ -1926,7 +2001,7 @@
       }
       const setInfoLoading = () =>
         infoDeck &&
-        (infoDeck.innerHTML = `<div class="info-card"><div class="info-row"><div>Keresés…</div></div></div>`);
+        (infoDeck.innerHTML = `<div class="info-card"><div class="info-row"><div class="spinner" aria-hidden="true"></div><div>Keresés…</div></div></div>`);
       function clearInfo(msg = "") {
         if (!infoDeck) return;
         infoDeck.innerHTML = msg
@@ -2150,7 +2225,7 @@
       }
       function setArtistLoading() {
         if (!artistDeck) return;
-        artistDeck.innerHTML = `<div class="info-card"><div class="info-row"><div>Keresés előadóra…</div></div></div>`;
+        artistDeck.innerHTML = `<div class="info-card"><div class="info-row"><div class="spinner" aria-hidden="true"></div><div>Keresés előadóra…</div></div></div>`;
       }
       function clearArtist(msg = "") {
         if (!artistDeck) return;
@@ -2360,6 +2435,13 @@
         startLeft: 0,
       };
       trackList.addEventListener("dragstart", (e) => e.preventDefault());
+      trackList.addEventListener(
+        "touchmove",
+        (e) => {
+          if (dragState.dragging) e.preventDefault();
+        },
+        { passive: false }
+      );
       function arrayMove(arr, from, to) {
         if (from === to) return arr;
         const it = arr.splice(from, 1)[0];
@@ -2511,6 +2593,7 @@
         LONG_PRESS_MS = 320;
 
       trackList.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "touch") return;
         const item = e.target.closest(".track-item");
         if (!item) return;
         if (e.button !== 0 && e.pointerType !== "touch") return;
@@ -2522,21 +2605,6 @@
         activePointerId = e.pointerId;
         pressArmed = e.pointerType !== "touch";
         pressCancelled = false;
-
-        if (e.pointerType === "touch") {
-          clearTimeout(pressTimer);
-          pressTimer = setTimeout(() => {
-            if (!pressCancelled && pressedEl) {
-              pressArmed = true;
-              try {
-                navigator.vibrate && navigator.vibrate(10);
-              } catch {}
-              document.body.classList.add("reorder-armed");
-              sidebarScroll.style.touchAction = "none";
-              pressedEl.style.touchAction = "none";
-            }
-          }, LONG_PRESS_MS);
-        }
 
         const onMove = (ev) => {
           if (!pressedEl) return;
@@ -2607,6 +2675,85 @@
           passive: true,
           capture: true,
         });
+      });
+
+      let touchDragTimer = null;
+      let touchPressedEl = null;
+      let touchStartX = 0,
+        touchStartY = 0;
+      let touchDragActive = false;
+
+      trackList.addEventListener(
+        "touchstart",
+        (e) => {
+          if (e.touches.length !== 1) return;
+          const item = e.target.closest(".track-item");
+          if (!item) return;
+          if (e.target.closest(".btn-icon")) return;
+
+          touchPressedEl = item;
+          touchDragActive = false;
+          const t = e.touches[0];
+          touchStartX = t.clientX;
+          touchStartY = t.clientY;
+
+          clearTimeout(touchDragTimer);
+          touchDragTimer = setTimeout(() => {
+            if (!touchPressedEl) return;
+            touchDragActive = true;
+            try {
+              navigator.vibrate && navigator.vibrate(10);
+            } catch {}
+            document.body.classList.add("reorder-armed");
+            sidebarScroll.style.touchAction = "none";
+            touchPressedEl.style.touchAction = "none";
+            if (!dragState.dragging) {
+              startDrag(touchPressedEl, null, touchStartX, touchStartY);
+              moveGhost(touchStartY);
+              updatePlaceholderPosition(touchStartY);
+            }
+          }, LONG_PRESS_MS);
+        },
+        { passive: true }
+      );
+
+      trackList.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!touchPressedEl) return;
+          const t = e.touches[0];
+          const dx = Math.abs(t.clientX - touchStartX);
+          const dy = Math.abs(t.clientY - touchStartY);
+
+          if (!touchDragActive) {
+            if (dx > DRAG_THRESHOLD_TOUCH || dy > DRAG_THRESHOLD_TOUCH) {
+              clearTimeout(touchDragTimer);
+              touchDragTimer = null;
+              touchPressedEl = null;
+            }
+            return;
+          }
+          e.preventDefault();
+          moveGhost(t.clientY);
+          updatePlaceholderPosition(t.clientY);
+          autoScrollIfNeeded(t.clientY);
+        },
+        { passive: false }
+      );
+
+      function endTouchDrag() {
+        clearTimeout(touchDragTimer);
+        touchDragTimer = null;
+        document.body.classList.remove("reorder-armed");
+        sidebarScroll.style.touchAction = "";
+        if (touchPressedEl) touchPressedEl.style.touchAction = "";
+        if (touchDragActive) finishDrag();
+        touchDragActive = false;
+        touchPressedEl = null;
+      }
+      trackList.addEventListener("touchend", endTouchDrag, { passive: true });
+      trackList.addEventListener("touchcancel", endTouchDrag, {
+        passive: true,
       });
 
       // ---------- INIT ----------
