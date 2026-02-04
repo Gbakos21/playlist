@@ -398,6 +398,48 @@
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.08);
       }
+      .list-filter {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .list-filter:focus-within {
+        border-color: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 0 0 2px rgba(155, 107, 255, 0.2);
+      }
+      .list-filter svg {
+        width: 16px;
+        height: 16px;
+        fill: #c7c9d1;
+        opacity: 0.8;
+        flex: 0 0 auto;
+      }
+      .list-filter input {
+        flex: 1;
+        background: transparent;
+        border: 0;
+        outline: none;
+        color: var(--text);
+        font-size: 0.9rem;
+        min-width: 0;
+      }
+      .list-filter input::placeholder {
+        color: #aeb1bf;
+      }
+      .list-empty {
+        padding: 16px 10px;
+        color: #aeb1bf;
+        font-size: 0.9rem;
+        text-align: center;
+      }
 
       .track-item {
         display: grid;
@@ -810,6 +852,20 @@
                 Új zene
               </button>
             </div>
+            <div class="list-filter">
+              <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+                <path
+                  d="M505 442.7L405.3 343c-4.5-4.5-10.6-7-17-7H372c27.6-35.3 44-79.7 44-128C416 93.1 322.9 0 208 0S0 93.1 0 208s93.1 208 208 208c48.3 0 92.7-16.4 128-44v16.3c0 6.4 2.5 12.5 7 17l99.7 99.7c9.4 9.4 24.6 9.4 33.9 0l28.3-28.3c9.4-9.4 9.4-24.6.1-34zM208 336c-70.7 0-128-57.2-128-128 0-70.7 57.2-128 128-128 70.7 0 128 57.2 128 128 0 70.7-57.2 128-128 128z"
+                />
+              </svg>
+              <input
+                id="filterInput"
+                type="search"
+                placeholder="Szűrés cím / előadó"
+                aria-label="Szűrés a listában"
+                autocomplete="off"
+              />
+            </div>
             <div id="trackList"></div>
           </div>
         </div>
@@ -1221,9 +1277,18 @@
       const sidebarScroll = document.getElementById("sidebarScroll");
       const filePicker = document.getElementById("filePicker");
       const newBtn = document.getElementById("newMusicButton");
+      const filterInput = document.getElementById("filterInput");
 
       const infoDeck = document.getElementById("infoDeck");
       const artistDeck = document.getElementById("artistDeck");
+
+      let listFilterTerm = "";
+      if (filterInput) {
+        filterInput.addEventListener("input", () => {
+          listFilterTerm = filterInput.value.trim();
+          renderTrackList();
+        });
+      }
 
       function formatTime(sec) {
         if (!isFinite(sec)) return "0:00";
@@ -1536,7 +1601,15 @@
       function renderTrackList() {
         setupHydrationObserver();
         trackList.innerHTML = "";
+        const term = (listFilterTerm || "").toLowerCase();
+        let visibleCount = 0;
         playlistMeta.tracks.forEach((t, i) => {
+          if (term) {
+            const title = cleanDisplayTitle(t.title || "").toLowerCase();
+            const artist = cleanDisplayArtist(t.artist || "").toLowerCase();
+            if (!title.includes(term) && !artist.includes(term)) return;
+          }
+          visibleCount++;
           const el = document.createElement("div");
           el.className = "track-item";
           el.dataset.index = i;
@@ -1594,6 +1667,11 @@
           trackList.appendChild(el);
           hydrateObserver.observe(el);
         });
+        if (!visibleCount) {
+          trackList.innerHTML =
+            '<div class="list-empty">Nincs találat.</div>';
+          return;
+        }
         highlightActiveItem();
       }
 
@@ -2594,6 +2672,7 @@
 
       trackList.addEventListener("pointerdown", (e) => {
         if (e.pointerType === "touch") return;
+        if (listFilterTerm) return;
         const item = e.target.closest(".track-item");
         if (!item) return;
         if (e.button !== 0 && e.pointerType !== "touch") return;
@@ -2686,6 +2765,7 @@
       trackList.addEventListener(
         "touchstart",
         (e) => {
+          if (listFilterTerm) return;
           if (e.touches.length !== 1) return;
           const item = e.target.closest(".track-item");
           if (!item) return;
